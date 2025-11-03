@@ -3,7 +3,7 @@
 지도 기반 커플 데이트 추천 플랫폼입니다. FastAPI 백엔드와 네이티브 JavaScript 프런트엔드를 사용하며, Docker 및 Kubernetes 환경에서 실행할 수 있도록 구성되어 있습니다.
 
 ## 주요 기능
-- 자체 회원가입/로그인 + JWT 무상태 인증 (Redis 기반 세션 추적·토큰 회전·강제 로그아웃 지원)
+- 자체 회원가입/로그인 + JWT 무상태 인증 (Refresh 토큰은 Redis에 보관)
 - Kakao Maps 기반 지도 렌더링 및 주변 장소 추천
 - MongoDB 지오스패셜 쿼리를 활용한 위치 기반 장소 조회 (데이터 없을 시 샘플 응답)
 - Redis를 이용한 레이트리밋/토큰 블랙리스트/캐싱 준비
@@ -66,7 +66,7 @@
 1. minikube 설치 (macOS: `brew install minikube`, Windows: 공식 설치 프로그램).
 2. 리소스를 넉넉히 잡아 클러스터를 시작합니다.
    ```bash
-   minikube start --profile dating-app --cpus 4
+   minikube start --profile dating-app --cpus 4 --memory 4096
    ```
    > kind/k3d를 사용한다면 해당 도구의 클러스터 생성 명령을 사용합니다.
 

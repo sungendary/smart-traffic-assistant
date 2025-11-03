@@ -47,22 +47,10 @@ REPORT_PROMPT = ChatPromptTemplate.from_template(
 )
 
 
-class CleanChatOllama(ChatOllama):
-    @property
-    def _default_params(self) -> dict[str, Any]:
-        params = super()._default_params
-        clean_params = {key: value for key, value in params.items() if value is not None or key == "options"}
-        options = clean_params.get("options") or {}
-        clean_params["options"] = {key: value for key, value in options.items() if value is not None}
-        if not clean_params["options"]:
-            clean_params.pop("options")
-        return clean_params
-
-
 @lru_cache
 def get_llm() -> ChatOllama:
     try:
-        return CleanChatOllama(
+        return ChatOllama(
             base_url=settings.llm_base_url,
             model=settings.llm_model,
             temperature=settings.llm_temperature,

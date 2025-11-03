@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, date as Date
+from datetime import datetime
 
 from bson import ObjectId
 from fastapi import HTTPException, status
@@ -19,31 +19,16 @@ def _normalize_plan(doc: dict) -> dict:
     return doc
 
 
-def _prepare_payload(data: dict) -> dict:
-    prepared = {**data}
-    raw_date = prepared.get("date")
-    if isinstance(raw_date, Date):
-        prepared["date"] = raw_date.isoformat()
-    elif isinstance(raw_date, datetime):
-        prepared["date"] = raw_date.date().isoformat()
-    elif raw_date is None:
-        prepared["date"] = None
-    else:
-        prepared["date"] = str(raw_date) if raw_date else None
-    return prepared
-
-
 async def create_plan(db: AsyncIOMotorDatabase, couple_id: str, payload: dict) -> dict:
     now = datetime.utcnow()
-    payload_dict = _prepare_payload(payload)
     plan_doc = {
         "couple_id": ObjectId(couple_id),
-        "title": payload_dict.get("title", ""),
-        "date": payload_dict.get("date"),
-        "emotion_goal": payload_dict.get("emotion_goal"),
-        "budget_range": payload_dict.get("budget_range"),
-        "stops": payload_dict.get("stops", []),
-        "notes": payload_dict.get("notes", ""),
+        "title": payload.get("title", ""),
+        "date": payload.get("date"),
+        "emotion_goal": payload.get("emotion_goal"),
+        "budget_range": payload.get("budget_range"),
+        "stops": payload.get("stops", []),
+        "notes": payload.get("notes", ""),
         "created_at": now,
         "updated_at": now,
     }
@@ -76,9 +61,8 @@ async def update_plan(db: AsyncIOMotorDatabase, plan_id: str, couple_id: str, pa
         obj_id = ObjectId(plan_id)
     except Exception as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="잘못된 플랜 ID") from exc
-    prepared = _prepare_payload(payload)
-    prepared["updated_at"] = datetime.utcnow()
-    await db[PLANS_COL].update_one({"_id": obj_id, "couple_id": ObjectId(couple_id)}, {"$set": prepared})
+    payload["updated_at"] = datetime.utcnow()
+    await db[PLANS_COL].update_one({"_id": obj_id, "couple_id": ObjectId(couple_id)}, {"$set": payload})
     return await get_plan(db, plan_id, couple_id)
 
 
