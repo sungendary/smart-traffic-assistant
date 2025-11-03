@@ -7,6 +7,8 @@ from bson import ObjectId
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from .challenges import get_progress
+from fastapi import HTTPException
+
 from .llm import generate_report_summary
 
 VISITS_COL = "visits"
@@ -50,16 +52,22 @@ async def build_monthly_report(db: AsyncIOMotorDatabase, couple_id: str, month: 
     challenges = await get_progress(db, couple_id)
     challenge_summary = {c["id"]: c["completed"] for c in challenges}
 
-    summary_text = await generate_report_summary(
-        {
-            "month": month,
-            "visit_count": visit_count,
-            "top_tags": top_tags,
-            "emotion_stats": emotion_stats,
-            "challenge_progress": challenge_summary,
-            "notes": "; ".join(notes[:5]),
-        }
-    )
+    try:
+        summary_text = await generate_report_summary(
+            {
+                "month": month,
+                "visit_count": visit_count,
+                "top_tags": top_tags,
+                "emotion_stats": emotion_stats,
+                "challenge_progress": challenge_summary,
+                "notes": "; ".join(notes[:5]),
+            }
+        )
+    except HTTPException as exc:  # LLM 호출 실패 시 기본 문구 사용
+        summary_text = (
+            f"{month} 리포트를 생성하는 동안 AI 요약을 불러오지 못했습니다. "
+            "방문 기록과 감정 통계를 기반으로 직접 확인해 주세요."
+        )
 
     return {
         "month": month,

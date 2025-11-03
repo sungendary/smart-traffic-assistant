@@ -10,13 +10,20 @@ const state = {
   visits: [],
   report: null,
   mapSuggestions: [],
+  mapSummary: "",
   llmSuggestions: [],
+  llmTaskId: null,
+  llmStatus: "idle",
+  llmError: null,
+  llmPollTimer: null,
   isRightOpen: true,
   currentView: "map",
 };
 
 function handleLogout() {
   fetchJSON(`${AUTH_ENDPOINT}/logout`, { method: "POST" }).finally(() => {
+    cancelLlmPolling();
+    clearCachedSession();
     state.accessToken = null;
     state.user = null;
     state.couple = null;
@@ -25,8 +32,11 @@ function handleLogout() {
     state.visits = [];
     state.report = null;
     state.mapSuggestions = [];
+    state.mapSummary = "";
     state.llmSuggestions = [];
-    persistSession();
+    state.llmTaskId = null;
+    state.llmStatus = "idle";
+    state.llmError = null;
     renderApp();
     setStatus("로그아웃되었습니다.");
   });
@@ -49,6 +59,84 @@ function setStatus(message, type = "info") {
   overlay.textContent = message;
   overlay.dataset.type = type;
   overlay.classList.toggle("hidden", !message);
+}
+
+function cacheSession() {
+  if (state.accessToken) {
+    sessionStorage.setItem("sra-access-token", state.accessToken);
+  }
+  if (state.user) {
+    try {
+      sessionStorage.setItem("sra-user", JSON.stringify(state.user));
+    } catch (error) {
+      console.warn("사용자 정보를 저장하지 못했습니다.", error);
+    }
+  }
+}
+
+function restoreCachedSession() {
+  const token = sessionStorage.getItem("sra-access-token");
+  if (token) {
+    state.accessToken = token;
+  }
+  const rawUser = sessionStorage.getItem("sra-user");
+  if (rawUser) {
+    try {
+      state.user = JSON.parse(rawUser);
+    } catch (error) {
+      console.warn("저장된 사용자 정보를 파싱하지 못했습니다.", error);
+      sessionStorage.removeItem("sra-user");
+    }
+  }
+}
+
+function clearCachedSession() {
+  sessionStorage.removeItem("sra-access-token");
+  sessionStorage.removeItem("sra-user");
+}
+
+function cancelLlmPolling() {
+  if (state.llmPollTimer) {
+    clearTimeout(state.llmPollTimer);
+    state.llmPollTimer = null;
+  }
+}
+
+async function pollLlmTask(taskId, attempt = 0) {
+  try {
+    const data = await fetchJSON(`/api/ai/tasks/${taskId}`);
+    state.llmStatus = data.status;
+    state.llmError = data.error || null;
+
+    if (data.status === "completed" && data.result) {
+      state.llmSuggestions = Array.isArray(data.result) ? data.result : [];
+      state.llmPollTimer = null;
+      setStatus(state.mapSummary || "AI 추천이 준비되었습니다.", "success");
+      renderRightPanel();
+      return;
+    }
+
+    if (data.status === "failed") {
+      state.llmSuggestions = [];
+      state.llmPollTimer = null;
+      setStatus(data.error || "AI 추천 생성에 실패했습니다.", "error");
+      renderRightPanel();
+      return;
+    }
+
+    state.llmSuggestions = [];
+    const delay = Math.min(5000, 1000 + attempt * 500);
+    state.llmPollTimer = setTimeout(() => pollLlmTask(taskId, attempt + 1), delay);
+    renderRightPanel();
+  } catch (error) {
+    console.error(error);
+    state.llmStatus = "failed";
+    state.llmError = error.message;
+    state.llmSuggestions = [];
+    state.llmPollTimer = null;
+    setStatus("AI 추천 상태를 확인하지 못했습니다.", "error");
+    renderRightPanel();
+  }
 }
 
 async function fetchJSON(url, options = {}) {
@@ -145,9 +233,11 @@ function renderRightPanel() {
     }
     const wrapper = document.createElement("div");
     wrapper.className = "stack";
-    if (!state.llmSuggestions.length) {
-      wrapper.innerHTML = `<div class="card"><h2 class="section-title">맞춤 추천</h2><p class="section-caption">필터를 설정하고 "추천 받기"를 눌러보세요.</p></div>`;
-    } else {
+    if (state.llmStatus === "pending" || state.llmStatus === "running") {
+      wrapper.innerHTML = `<div class="card"><h2 class="section-title">AI 추천 생성 중</h2><p class="section-caption">맞춤 코스를 구성하는 중입니다. 잠시만 기다려 주세요.</p></div>`;
+    } else if (state.llmStatus === "failed") {
+      wrapper.innerHTML = `<div class="card card-error"><h2 class="section-title">AI 추천 실패</h2><p class="section-caption">${state.llmError || "AI 추천 생성에 실패했습니다. 잠시 후 다시 시도해 주세요."}</p></div>`;
+    } else if (state.llmSuggestions.length) {
       wrapper.innerHTML = `<div class="card"><h2 class="section-title">AI 추천 코스</h2><p class="section-caption">현재 감정과 선호를 반영한 제안입니다.</p></div>`;
       const template = select("#suggestion-template");
       state.llmSuggestions.forEach((item) => {
@@ -168,6 +258,8 @@ function renderRightPanel() {
         });
         wrapper.appendChild(node);
       });
+    } else {
+      wrapper.innerHTML = `<div class="card"><h2 class="section-title">맞춤 추천</h2><p class="section-caption">필터를 설정하고 "추천 받기"를 눌러보세요.</p></div>`;
     }
     container.appendChild(wrapper);
     return;
@@ -210,10 +302,21 @@ function renderRightPanel() {
     return;
   }
 
-  if (state.currentView === "reports" && state.report) {
-    const card = document.createElement("div");
-    card.className = "card";
-    card.innerHTML = `
+  if (state.currentView === "reports") {
+    if (!state.report) {
+      container.innerHTML = `<div class="card"><h2 class="section-title">리포트 준비 중</h2><p class="section-caption">왼쪽에서 월을 선택한 뒤 리포트를 불러오세요.</p></div>`;
+      return;
+    }
+    const summaryCard = document.createElement("div");
+    summaryCard.className = "card";
+    summaryCard.innerHTML = `
+      <h2 class="section-title">${state.report.month} 인사이트</h2>
+      <p class="card-desc">${state.report.summary}</p>
+    `;
+
+    const statsCard = document.createElement("div");
+    statsCard.className = "card";
+    statsCard.innerHTML = `
       <h2 class="section-title">감정 통계</h2>
       <ul class="tip-list">
         ${Object.entries(state.report.emotion_stats)
@@ -227,7 +330,9 @@ function renderRightPanel() {
           .join("")}
       </ul>
     `;
-    container.appendChild(card);
+    container.appendChild(summaryCard);
+    container.appendChild(statsCard);
+    return;
   }
 }
 
@@ -447,9 +552,7 @@ function renderReportsView() {
       <input type="month" name="month" value="${month}" />
       <button type="submit" class="primary-btn">리포트 확인</button>
     </form>
-    <div class="card" id="report-summary">
-      ${state.report ? `<p class="card-desc">${state.report.summary}</p>` : '<p class="section-caption">리포트를 불러오세요.</p>'}
-    </div>
+    <p class="section-caption">${state.report ? "우측 패널에서 상세 인사이트를 확인하세요." : "월을 선택하고 리포트를 불러오면 우측 패널에 결과가 표시됩니다."}</p>
   `;
   sidebar.appendChild(card);
   select("#report-form").addEventListener("submit", handleReportForm);
@@ -533,18 +636,37 @@ async function handleSignup(event) {
 async function handleLogin(event) {
   event.preventDefault();
   const payload = Object.fromEntries(new FormData(event.target).entries());
+  setStatus("로그인 중...");
   try {
     const data = await fetchJSON(`${AUTH_ENDPOINT}/login`, {
       method: "POST",
       body: JSON.stringify(payload),
     });
     state.accessToken = data.access_token;
+    sessionStorage.setItem("sra-access-token", data.access_token);
     state.user = data.user;
-    persistSession();
-    await loadInitialData();
+    cacheSession();
     renderApp();
-    setStatus("로그인 성공!");
+    setStatus("계정 정보를 불러오는 중...", "info");
+    let loadFailed = false;
+    try {
+      await loadInitialData();
+    } catch (loadError) {
+      loadFailed = true;
+      console.error("로그인 이후 사용자 정보를 불러오는 중 오류 발생", loadError);
+    }
+    renderApp();
+    if (loadFailed || !state.user) {
+      setStatus("사용자 정보를 불러오지 못했습니다. 다시 로그인해 주세요.", "error");
+      return;
+    }
+    setStatus("로그인 성공!", "success");
   } catch (error) {
+    state.accessToken = null;
+    state.user = null;
+    clearCachedSession();
+    console.error(error);
+    setStatus(error.message || "로그인에 실패했습니다.", "error");
     alert(error.message);
   }
 }
@@ -569,14 +691,31 @@ async function handleSuggestForm(event) {
   };
   try {
     setStatus("맞춤 추천 생성 중...");
+    cancelLlmPolling();
     const data = await fetchJSON("/api/map/suggestions", {
       method: "POST",
       body: JSON.stringify(payload),
     });
     state.mapSuggestions = data.places;
-    state.llmSuggestions = data.llm_suggestions;
+    state.mapSummary = data.summary || "";
+    state.llmSuggestions = Array.isArray(data.llm_suggestions) ? data.llm_suggestions : [];
+    state.llmTaskId = data.llm_task_id || null;
+    state.llmStatus = data.llm_status || (state.llmSuggestions.length ? "completed" : "pending");
+    state.llmError = null;
+    if (!state.llmTaskId && !state.llmSuggestions.length) {
+      state.llmStatus = "idle";
+    }
     addMarkers(data.places);
-    setStatus(data.summary, "success");
+    if (state.llmTaskId && state.llmStatus !== "completed" && state.llmStatus !== "failed") {
+      setStatus("AI 추천을 생성 중입니다...", "info");
+      state.llmPollTimer = setTimeout(() => pollLlmTask(state.llmTaskId), 1200);
+    } else if (state.llmStatus === "completed") {
+      setStatus(data.summary, "success");
+    } else if (state.llmStatus === "failed") {
+      setStatus(state.llmError || "AI 추천 생성에 실패했습니다.", "error");
+    } else {
+      setStatus(data.summary, "info");
+    }
     renderApp();
   } catch (error) {
     console.error(error);
@@ -727,7 +866,7 @@ async function loadCouple() {
       : data.members[0];
     if (matched) {
       state.user = matched;
-      persistSession();
+      cacheSession();
     }
   }
 }
@@ -756,64 +895,71 @@ async function loadReport(month) {
 }
 
 async function loadInitialData() {
+  if (!state.accessToken) return;
   try {
     const user = await fetchJSON(`${AUTH_ENDPOINT}/me`);
     state.user = user;
-    persistSession();
+    cacheSession();
   } catch (error) {
     console.error("사용자 정보를 불러오지 못했습니다.", error);
     state.accessToken = null;
-    persistSession();
-    return;
+    state.user = null;
+    throw error;
   }
 
   try {
     await loadCouple();
-    await Promise.all([loadPlans(), loadBookmarks(), loadVisits(), loadReport()]);
   } catch (error) {
     console.error(error);
   }
+
+  const loaderTasks = [
+    loadPlans(),
+    loadBookmarks(),
+    loadVisits(),
+    loadReport(),
+  ];
+  const results = await Promise.allSettled(loaderTasks);
+  results.forEach((result, index) => {
+    if (result.status === "rejected") {
+      const labels = ["플랜", "북마크", "방문 기록", "리포트"];
+      console.error(`${labels[index]} 데이터를 불러오지 못했습니다.`, result.reason);
+    }
+  });
 }
 
-function restoreSession() {
-  const token = sessionStorage.getItem("sra-access-token");
-  if (token) {
-    state.accessToken = token;
-  }
-  const rawUser = sessionStorage.getItem("sra-user");
-  if (rawUser) {
-    try {
-      state.user = JSON.parse(rawUser);
-    } catch (error) {
-      state.user = null;
+async function attemptSessionRestore() {
+  try {
+    const storedToken = sessionStorage.getItem("sra-access-token");
+    if (storedToken) {
+      state.accessToken = storedToken;
+      try {
+        await loadInitialData();
+        if (state.user) {
+          return;
+        }
+      } catch (error) {
+        console.warn("저장된 토큰이 만료되었습니다.", error);
+      }
     }
-  }
-}
 
-function persistSession() {
-  if (state.accessToken) {
-    sessionStorage.setItem("sra-access-token", state.accessToken);
-    if (state.user) {
-      sessionStorage.setItem("sra-user", JSON.stringify(state.user));
-    }
-  } else {
-    sessionStorage.removeItem("sra-access-token");
-    sessionStorage.removeItem("sra-user");
+    const data = await fetchJSON(`${AUTH_ENDPOINT}/refresh`, { method: "POST" });
+    state.accessToken = data.access_token;
+    sessionStorage.setItem("sra-access-token", data.access_token);
+    await loadInitialData();
+  } catch (error) {
+    state.accessToken = null;
+    state.user = null;
+    clearCachedSession();
   }
 }
 
 async function bootstrap() {
-  restoreSession();
+  restoreCachedSession();
   attachNavListeners();
   await initMap();
-  if (state.accessToken) {
-    try {
-      await loadInitialData();
-    } catch (error) {
-      state.accessToken = null;
-      sessionStorage.removeItem("sra-access-token");
-    }
-  }
+  renderApp();
+  await attemptSessionRestore();
   renderApp();
 }
 

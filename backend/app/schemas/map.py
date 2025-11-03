@@ -15,4 +15,6 @@ class MapSuggestionRequest(BaseModel):
 class MapSuggestionResponse(BaseModel):
     summary: str
     places: list[Place]
-    llm_suggestions: list[dict]
+    llm_suggestions: list[dict] = Field(default_factory=list)
+    llm_task_id: str | None = None
+    llm_status: str = "pending"
