@@ -1,0 +1,60 @@
+name: dating-app
+
+services:
+  api:
+    build: .
+    container_name: dating-app-api
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    env_file:
+      - .env
+    volumes:
+      - ./backend:/app/backend
+      - ./frontend:/app/frontend
+    ports:
+      - "8000:8000"
+    depends_on:
+      - mongo
+      - redis
+      - llm
+    cpus: "1.0"
+    mem_limit: 1024m
+
+  mongo:
+    image: mongo:6.0
+    restart: unless-stopped
+    container_name: dating-app-mongo
+    environment:
+      MONGO_INITDB_DATABASE: datingapp
+    volumes:
+      - dating-app-mongo-data:/data/db
+    ports:
+      - "27017:27017"
+
+  redis:
+    image: redis:7.2
+    restart: unless-stopped
+    container_name: dating-app-redis
+    command: redis-server --save 60 1 --loglevel warning
+    volumes:
+      - dating-app-redis-data:/data
+    ports:
+      - "6379:6379"
+
+  llm:
+    image: ollama/ollama:latest
+    container_name: dating-app-llm
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - llm-models:/root/.ollama
+    environment:
+      - OLLAMA_NUM_PARALLEL=1
+      - OLLAMA_MAX_LOADED_MODELS=1
+    cpus: "1.5"
+    mem_limit: 2500m
+
+volumes:
+  dating-app-mongo-data:
+  dating-app-redis-data:
+  llm-models:

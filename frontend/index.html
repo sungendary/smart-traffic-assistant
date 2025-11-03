@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Smart Relationship Navigator</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div class="brand">Smart Relationship Navigator</div>
+        <nav class="nav-links">
+          <button type="button" data-view="map" class="nav-btn active">지도</button>
+          <button type="button" data-view="planner" class="nav-btn">플래너</button>
+          <button type="button" data-view="couple" class="nav-btn">커플</button>
+          <button type="button" data-view="reports" class="nav-btn">리포트</button>
+        </nav>
+        <div class="top-actions">
+          <span id="user-label" class="user-label">로그인 필요</span>
+          <button id="logout-btn" class="ghost-btn hidden">로그아웃</button>
+          <button id="toggle-right" class="ghost-btn">패널 닫기</button>
+        </div>
+      </header>
+
+      <div class="layout">
+        <aside class="sidebar left" id="left-sidebar"></aside>
+        <main class="map-area">
+          <div id="map" class="map-container">지도를 불러오는 중...</div>
+          <div id="map-overlay" class="floating-card hidden"></div>
+        </main>
+        <aside class="sidebar right open" id="right-sidebar">
+          <div id="right-content"></div>
+        </aside>
+      </div>
+
+      <div id="modal-root"></div>
+    </div>
+
+    <template id="suggestion-template">
+      <article class="card suggestion-card">
+        <h3 class="card-title" data-field="title"></h3>
+        <p class="card-desc" data-field="description"></p>
+        <ul class="pill-list" data-field="places"></ul>
+        <ul class="tip-list" data-field="tips"></ul>
+      </article>
+    </template>
+
+    <template id="plan-card-template">
+      <article class="card plan-card">
+        <header class="card-header">
+          <div>
+            <h3 data-field="title"></h3>
+            <p class="subtext" data-field="meta"></p>
+          </div>
+          <div class="plan-actions" data-field="actions"></div>
+        </header>
+        <ol class="plan-stops" data-field="stops"></ol>
+      </article>
+    </template>
+
+    <script src="/static/app.js" type="module"></script>
+  </body>
+</html>
