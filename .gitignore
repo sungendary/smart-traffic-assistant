@@ -234,7 +234,6 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
-<<<<<<< Updated upstream
 
 # ==========================================================
 #  프론트엔드 (Node.js/JavaScript) 추가
@@ -281,6 +280,4 @@ logs/
 checkpoints/
 tensorboard/
 runs/
-=======
 .env*
->>>>>>> Stashed changes
