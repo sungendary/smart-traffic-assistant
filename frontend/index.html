@@ -3,70 +3,59 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Smart Relationship Navigator</title>
+    <title>오픈소스SW 데이팅앱</title>
     <link rel="stylesheet" href="/static/styles.css" />
   </head>
   <body>
-    <div id="app">
-      <aside class="sidebar sidebar-left">
-        <h1>Smart Relationship Navigator</h1>
-        <section class="auth-section">
-          <h2>로그인</h2>
-          <form id="login-form">
-            <label>
-              이메일
-              <input type="email" name="email" placeholder="you@example.com" required />
-            </label>
-            <label>
-              비밀번호
-              <input type="password" name="password" minlength="8" required />
-            </label>
-            <button type="submit">로그인</button>
-          </form>
-          <details>
-            <summary>회원가입</summary>
-            <form id="signup-form">
-              <label>
-                이메일
-                <input type="email" name="email" required />
-              </label>
-              <label>
-                닉네임
-                <input type="text" name="nickname" maxlength="30" required />
-              </label>
-              <label>
-                비밀번호
-                <input type="password" name="password" minlength="8" required />
-              </label>
-              <button type="submit">회원가입</button>
-            </form>
-          </details>
-        </section>
-        <section class="map-controls">
-          <h2>지도 설정</h2>
-          <button id="locate-me">현재 위치로 이동</button>
-          <button id="load-places">주변 추천받기</button>
-          <div id="map-status" class="status"></div>
-        </section>
-      </aside>
-
-      <main class="map-area">
-        <div id="map" class="map-container">지도를 불러오는 중...</div>
-      </main>
-
-      <aside class="sidebar sidebar-right">
-        <h2>개인화 서비스</h2>
-        <div id="personalized-panel">
-          <p class="placeholder">로그인 후 이용가능한 기능입니다.</p>
+    <div class="app-shell">
+      <header class="topbar">
+        <div class="brand">오픈소스SW 데이팅앱</div>
+        <nav class="nav-links">
+          <button type="button" data-view="map" class="nav-btn active">지도</button>
+          <button type="button" data-view="planner" class="nav-btn">플래너</button>
+          <button type="button" data-view="couple" class="nav-btn">커플</button>
+          <button type="button" data-view="reports" class="nav-btn">리포트</button>
+        </nav>
+        <div class="top-actions">
+          <span id="user-label" class="user-label">로그인 필요</span>
+          <button id="logout-btn" class="ghost-btn hidden">로그아웃</button>
+          <button id="toggle-right" class="ghost-btn">패널 닫기</button>
         </div>
-      </aside>
+      </header>
+
+      <div class="layout">
+        <aside class="sidebar left" id="left-sidebar"></aside>
+        <main class="map-area">
+          <div id="map" class="map-container">지도를 불러오는 중...</div>
+          <div id="map-overlay" class="floating-card hidden"></div>
+        </main>
+        <aside class="sidebar right open" id="right-sidebar">
+          <div id="right-content"></div>
+        </aside>
+      </div>
+
+      <div id="modal-root"></div>
     </div>
 
-    <template id="place-template">
-      <article class="place-card">
-        <h3 data-field="name"></h3>
-        <p data-field="description"></p>
-        <span data-field="tags" class="tags"></span>
+    <template id="suggestion-template">
+      <article class="card suggestion-card">
+        <h3 class="card-title" data-field="title"></h3>
+        <p class="card-desc" data-field="description"></p>
+        <ul class="pill-list" data-field="places"></ul>
+        <ul class="tip-list" data-field="tips"></ul>
+      </article>
+    </template>
+
+    <template id="plan-card-template">
+      <article class="card plan-card">
+        <header class="card-header">
+          <div>
+            <h3 data-field="title"></h3>
+            <p class="subtext" data-field="meta"></p>
+          </div>
+          <div class="plan-actions" data-field="actions"></div>
+        </header>
+        <ol class="plan-stops" data-field="stops"></ol>
       </article>
     </template>
 
