@@ -1,0 +1,38 @@
+name: dating-app
+services:
+  api:
+    build: .
+    container_name: dating-app-api
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    env_file:
+    - .env
+    volumes:
+    - ./backend:/app/backend
+    - ./frontend:/app/frontend
+    ports:
+    - 8000:8000
+    depends_on:
+    - mongo
+    - redis
+  mongo:
+    image: mongo:6.0
+    restart: unless-stopped
+    container_name: dating-app-mongo
+    volumes:
+    - dating-app-mongo-data:/data/db
+    environment:
+      MONGO_INITDB_DATABASE: datingapp
+    ports:
+    - 27017:27017
+  redis:
+    image: redis:7.2
+    restart: unless-stopped
+    container_name: dating-app-redis
+    command: redis-server --save 60 1 --loglevel warning
+    volumes:
+    - dating-app-redis-data:/data
+    ports:
+    - 6379:6379
+volumes:
+  dating-app-mongo-data:
+  dating-app-redis-data:

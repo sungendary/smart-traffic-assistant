@@ -159,6 +159,35 @@ venv.bak/
 .dmypy.json
 dmypy.json
 
+# VSCode / IDE
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Local runtime data
+*.db
+*.sqlite
+*.sqlite3
+*.log
+
+# Tests / coverage artifacts
+coverage/
+
+# Node / frontend
+node_modules/
+dist/
+*.local
+
+# Docker / compose overrides
+docker-compose.override.yml
+
+# Kubernetes generated files
+k8s/*.local.yaml
+k8s/*.generated.yaml
+
 # Pyre type checker
 .pyre/
 
@@ -251,3 +280,4 @@ logs/
 checkpoints/
 tensorboard/
 runs/
+.env*
