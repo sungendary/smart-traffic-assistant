@@ -27,6 +27,10 @@ class Settings(BaseSettings):
 
     cors_origins: str = Field(default="http://localhost:5173,http://localhost:3000,http://localhost")
 
+    llm_base_url: str = Field(default="http://llm:11434")
+    llm_model: str = Field(default="qwen2.5:0.5b")
+    llm_temperature: float = Field(default=0.2)
+
     @property
     def cors_origins_list(self) -> list[str]:
         return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]

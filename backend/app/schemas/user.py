@@ -22,18 +22,4 @@ class UserPublic(BaseModel):
     email_verified: bool
     created_at: datetime
     preferences: list[str] = Field(default_factory=list)
-
-
-class UserInDB(BaseModel):
-    id: str
-    email: EmailStr
-    password_hash: str
-    nickname: str
-    preferences: list[str] | None = None
-    email_verified: bool
-    created_at: datetime
-
-
-class TokenPair(BaseModel):
-    access_token: str
-    token_type: str = "bearer"
+    couple_id: str | None = None

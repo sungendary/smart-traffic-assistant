@@ -24,10 +24,7 @@
 | POST | `/api/auth/signup` | 필요 없음 | 이메일/비밀번호 기반 회원가입 |
 | POST | `/api/auth/login` | 필요 없음 | 로그인 및 Access/Refresh 토큰 발급 |
 | POST | `/api/auth/refresh` | 필요 없음 (Refresh 쿠키 필요) | 새 Access 토큰 발급 |
-| POST | `/api/auth/logout` | 필요 없음 | Refresh 토큰 삭제 및 세션 비활성화 |
-| GET | `/api/auth/me` | 필요 | 현재 사용자 정보 조회 |
-| GET | `/api/auth/sessions` | 필요 | Redis에 저장된 활성/해제 세션 목록 조회 |
-| DELETE | `/api/auth/sessions/{session_id}` | 필요 | 지정 세션(다른 기기 포함) 강제 로그아웃 |
+| POST | `/api/auth/logout` | 필요 없음 | Refresh 토큰 삭제 및 로그아웃 |
 
 **회원가입 요청 예시**
 ```json
@@ -53,8 +50,6 @@
   }
 }
 ```
-
-Access/Refresh 토큰에는 `session_id`가 포함되어 Redis 세션 스토어와 매칭됩니다. Refresh 호출 시 토큰이 매번 재발급되며, 로그아웃 또는 세션 강제 종료 시 해당 `session_id`가 즉시 폐기됩니다.
 
 ---
 
@@ -101,13 +96,9 @@ Access/Refresh 토큰에는 `session_id`가 포함되어 Redis 세션 스토어�
 {
   "summary": "설렘 상태에 맞춘 맞춤 추천을 구성했습니다.",
   "places": [ /* MongoDB 기반 추천 장소 목록 */ ],
-  "llm_suggestions": [],
-  "llm_task_id": "4f5e12b0b92c4fbb9a7a6a696f5f418a",
-  "llm_status": "pending"
+  "llm_suggestions": [ /* LangChain + Qwen2.5가 생성한 코스 제안 */ ]
 }
 ```
-
-`llm_task_id`가 반환되면 `/api/ai/tasks/{task_id}`로 상태를 폴링하여 AI 추천 코스 생성이 완료되었는지 확인할 수 있습니다. `llm_status` 값은 `pending` → `running` → `completed`/`failed` 순으로 갱신됩니다.
 
 ---
 
@@ -207,13 +198,7 @@ Access/Refresh 토큰에는 `session_id`가 포함되어 Redis 세션 스토어�
 ---
 
 ## 11. AI / LangChain
-지도 추천(`POST /api/map/suggestions`)과 리포트(`GET /api/reports/monthly`) 내부에서 LangChain + Qwen2.5 모델을 사용해 자연어 제안을 생성합니다. LLM 호출은 비동기 작업으로 처리되어, 프론트엔드는 반환된 `task_id`를 바탕으로 상태를 확인하게 됩니다.
-
-| 메서드 | 경로 | 인증 | 설명 |
-|--------|------|------|------|
-| GET | `/api/ai/tasks/{task_id}` | 필요 | LLM 비동기 작업 상태 조회 (`status`, `result`, `error` 필드 포함) |
-
-작업 상태는 Redis에 1시간 동안 보관됩니다. 요약 모델 엔드포인트는 `.env`의 `LLM_BASE_URL`, `LLM_MODEL` 값으로 설정합니다.
+지도 추천(`POST /api/map/suggestions`)과 리포트(`GET /api/reports/monthly`) 내부에서 LangChain + Qwen2.5 모델을 사용해 자연어 제안을 생성합니다. 모델 엔드포인트는 `.env`의 `LLM_BASE_URL`, `LLM_MODEL` 값으로 지정합니다.
 
 ---
 

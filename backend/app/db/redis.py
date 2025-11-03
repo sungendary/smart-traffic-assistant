@@ -9,7 +9,7 @@ class RedisConnectionManager:
     @classmethod
     def get_client(cls) -> Redis:
         if cls.client is None:
-            cls.client = Redis.from_url(settings.redis_url, encoding="utf-8", decode_responses=True)
+            cls.client = Redis.from_url(settings.redis_url, decode_responses=True)
         return cls.client
 
     @classmethod

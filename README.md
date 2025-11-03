@@ -1,23 +1,21 @@
-<<<<<<< Updated upstream
-Dating app
-=======
 # Smart Relationship Navigator
 
 지도 기반 커플 데이트 추천 플랫폼입니다. FastAPI 백엔드와 네이티브 JavaScript 프런트엔드를 사용하며, Docker 및 Kubernetes 환경에서 실행할 수 있도록 구성되어 있습니다.
 
 ## 주요 기능
-- 자체 회원가입/로그인 + JWT 무상태 인증 (Redis 기반 세션 추적·토큰 회전·강제 로그아웃 지원)
+- 자체 회원가입/로그인 + JWT 무상태 인증 (Refresh 토큰은 Redis에 보관)
 - Kakao Maps 기반 지도 렌더링 및 주변 장소 추천
 - MongoDB 지오스패셜 쿼리를 활용한 위치 기반 장소 조회 (데이터 없을 시 샘플 응답)
 - Redis를 이용한 레이트리밋/토큰 블랙리스트/캐싱 준비
+- LangChain + 로컬 Ollama LLM(Qwen 0.5B 경량 모델) 기반 데이트 코스 추천 API 제공
 - Docker Compose / Kubernetes 배포 템플릿 및 GitHub Actions CI 파이프라인 제공
 
 ## 기술 스택
-- Backend: FastAPI, Motor(MongoDB), Redis-py
+- Backend: FastAPI, Motor(MongoDB), Redis-py, LangChain
 - Frontend: Native JavaScript, Kakao Maps SDK
 - Database: MongoDB (주 저장소), Redis (필수 인프라)
 - Auth: JWT(access/refresh), Argon2/Bcrypt 해시
-- DevOps: Docker, Docker Compose, Kubernetes(k3d/kind), GitHub Actions, GHCR
+- DevOps: Docker, Docker Compose, Kubernetes(k3d/kind), GitHub Actions, GHCR, Ollama
 
 ## 환경 변수
 `.env.example`를 복사해 `.env`를 생성하고 값을 채워주세요. 주요 키는 다음과 같습니다.
@@ -29,6 +27,9 @@ Dating app
 | `REDIS_URL` | Redis 접속 URI (`redis://redis:6379/0`) |
 | `JWT_SECRET_KEY` | 32자 이상의 랜덤 시크릿. 예) `python -c "import secrets; print(secrets.token_urlsafe(48))"` |
 | `KAKAO_MAP_APP_KEY` | Kakao Developers JavaScript 키 |
+| `LLM_BASE_URL` | LangChain이 접근할 LLM 엔드포인트 (`http://llm:11434`) |
+| `LLM_MODEL` | Ollama 모델 이름 (예: `qwen2.5:0.5b`, `llama3:instruct`) |
+| `LLM_TEMPERATURE` | LangChain temperature 값 |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | Access 토큰 만료(분) |
 | `REFRESH_TOKEN_EXPIRE_MINUTES` | Refresh 토큰 만료(분) |
 | `PASSWORD_HASH_SCHEME` | `argon2` 또는 `bcrypt` |
@@ -45,23 +46,42 @@ Dating app
    ```
 4. 브라우저에서 `http://localhost:8000` 접속 → 회원가입 후 로그인 → “주변 추천받기” 버튼으로 지도/추천 검증
 5. (선택) MongoDB 지오 인덱스 생성: `docker exec -it dating-app-mongo mongosh` → `db.places.createIndex({ location: "2dsphere" })`
+6. LangChain용 경량 LLM 모델 다운로드(최초 1회):
+   ```bash
+   docker compose exec llm ollama pull qwen2.5:0.5b
+   ```
+   `.env`에서 `LLM_MODEL` 값을 변경했다면 동일한 명령으로 원하는 모델을 추가로 받아야 합니다.
+   
+   > `llm` 서비스가 없어서 `service "llm" is not running` 오류가 나면 `docker-compose.yml`에 아래 블록이 포함되어 있는지 확인한 뒤 `docker compose up -d llm`으로 컨테이너를 기동하세요.
+   > ```yaml
+   >   llm:
+   >     image: ollama/ollama:latest
+   >     container_name: dating-app-llm
+   >     restart: unless-stopped
+   >     ports:
+   >       - "11434:11434"
+   >     volumes:
+   >       - llm-models:/root/.ollama
+   >     environment:
+   >       - OLLAMA_NUM_PARALLEL=1
+   >       - OLLAMA_MAX_LOADED_MODELS=1
+   > ```
+   
+   > `docker-compose.yml`에는 `cpus`/`mem_limit`를 낮게 설정해 두었습니다(맥북 기본 모델 기준). 필요 시 값을 조정하세요.
 
 ## 쿠버네티스 배포
 처음 Kubernetes를 쓰는 팀원이 헷갈리지 않도록, 로컬 테스트 환경(minikube) 기준으로 단계별 설명을 제공합니다. 다른 클러스터(EKS/GKE 등)를 사용할 때도 “이미지 준비 → 매니페스트 적용” 순서는 동일합니다.
 
 ### 0. 사전 준비
 - `.env`에 입력한 값과 동일하게 `k8s/app-secrets.yaml`을 준비합니다.
-  ```bash
-  cp k8s/app-secrets.example.yaml k8s/app-secrets.yaml
   # 편집해서 JWT_SECRET_KEY, KAKAO_MAP_APP_KEY 등 실제 값 입력
-  ```
 - `kubectl version --client`로 kubectl이 설치되어 있는지 확인합니다.
 
 ### 1. 로컬 클러스터 생성 (minikube 예시)
 1. minikube 설치 (macOS: `brew install minikube`, Windows: 공식 설치 프로그램).
 2. 리소스를 넉넉히 잡아 클러스터를 시작합니다.
    ```bash
-   minikube start --profile dating-app --cpus 4
+   minikube start --profile dating-app --cpus 4 --memory 4096
    ```
    > kind/k3d를 사용한다면 해당 도구의 클러스터 생성 명령을 사용합니다.
 
@@ -69,18 +89,13 @@ Dating app
 쿠버네티스 파드는 레지스트리에서 이미지를 가져옵니다. 아래 두 가지 방법 중 하나를 선택하세요.
 
 **옵션 A — 레지스트리에 푸시 (권장)**
-1. GHCR에 로그인합니다. 개인 액세스 토큰(PAT)에 `write:packages` 권한이 있어야 합니다.
-   ```bash
-   echo <GHCR_PAT> | docker login ghcr.io -u <your-id> --password-stdin
-   ```
-2. 이미지를 빌드/푸시합니다.
+1. GHCR 기준 수동 푸시 예시는 다음과 같습니다.
    ```bash
    docker build -t ghcr.io/<your-id>/dating-app-api:latest .
    docker push ghcr.io/<your-id>/dating-app-api:latest
    ```
-3. `k8s/api-deployment.yaml`의 `image` 필드를 위 경로로 수정합니다.
-4. 사설 레지스트리를 쓸 경우 `imagePullSecrets`를 Deployment에 추가해야 합니다.
-5. Pod가 `ErrImagePull`/`ImagePullBackOff` 상태라면, 위 이미지가 정상적으로 올라갔는지 확인 후 Deployment를 다시 적용하거나 Pod를 삭제하여 재시작합니다.
+2. `k8s/api-deployment.yaml`의 `image` 필드를 위 경로로 수정합니다.
+3. 사설 레지스트리를 쓸 경우 `imagePullSecrets`를 Deployment에 추가해야 합니다.
 
 **옵션 B — minikube Docker 데몬에 직접 빌드**
 1. minikube의 Docker 환경으로 전환합니다.
@@ -96,7 +111,6 @@ Dating app
    eval "$(minikube docker-env -u)"
    ```
 4. `k8s/api-deployment.yaml`에서 `image: dating-app-api:latest`인지 확인합니다. 레지스트리에 올리지 않아도 minikube 내부에서 이미지를 사용할 수 있습니다.
-5. 적용 후 `kubectl get pods -n dating-app`으로 상태를 확인하고, `ImagePullBackOff`가 뜬다면 `kubectl delete pod -n dating-app -l app=dating-app-api`로 Pod를 삭제해 새 이미지를 다시 당겨오게 합니다.
 
 ### 3. 매니페스트 적용
 `k8s/` 디렉터리에는 네임스페이스, ConfigMap/Secret, MongoDB/Redis, API 배포가 모두 준비되어 있습니다. 아래 순서를 그대로 실행하면 됩니다.
@@ -108,6 +122,7 @@ kubectl apply -f k8s/mongo-statefulset.yaml
 kubectl apply -f k8s/redis-deployment.yaml
 kubectl apply -f k8s/api-deployment.yaml
 kubectl apply -f k8s/api-service.yaml
+kubectl apply -f k8s/llm-deployment.yaml
 ```
 배포 상태 확인:
 ```bash
@@ -131,6 +146,7 @@ kubectl logs -n dating-app deployment/dating-app-api
   ```
 - `mongo-statefulset.yaml`의 `storageClassName`은 클러스터 환경(예: minikube=standard, kind/k3d=local-path 등)에 맞게 조정하세요.
 - Redis는 `emptyDir`를 사용하므로 영속 데이터가 필요하면 PVC를 추가하십시오.
+- LLM을 사용하는 경우 `kubectl exec -it deploy/llm -n dating-app -- ollama pull qwen2.5:0.5b` 명령으로 원하는 모델을 로드한 뒤 `/api/ai/suggest-itinerary` 기능을 호출할 수 있습니다. (모델명은 `.env`의 `LLM_MODEL`과 동일해야 합니다.)
 
 이 과정을 따르면 협업 중 처음 쿠버네티스를 접하는 사람도 “클러스터 생성 → 이미지 준비 → 매니페스트 적용 → 접속 확인” 흐름을 문제없이 수행할 수 있습니다.
 
@@ -178,4 +194,3 @@ Document/개발문서.md     # 한글 요구사항 및 설계
 - 프런트엔드 상태 관리/빌드 파이프라인(예: Vite) 도입 검토
 
 궁금한 점이나 추가 자동화(예: Helm Chart, Terraform, 배포 스크립트)가 필요하면 이슈나 Pull Request로 요청해 주세요.
->>>>>>> Stashed changes

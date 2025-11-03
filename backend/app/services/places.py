@@ -1,13 +1,12 @@
 from typing import Iterable
 
-from fastapi import HTTPException, status
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from ..schemas.place import Place
 
 PLACES_COLLECTION = "places"
 
-FALLBACK_PLACES: list[Place] = [
+FALLBACK_PLACES = [
     Place(
         id="sample-1",
         name="한강 공원 야경 피크닉",
@@ -32,8 +31,8 @@ FALLBACK_PLACES: list[Place] = [
 async def list_places(
     db: AsyncIOMotorDatabase,
     *,
-    latitude: float | None = None,
-    longitude: float | None = None,
+    latitude: float,
+    longitude: float,
     tags: Iterable[str] | None = None,
     limit: int = 10,
 ) -> list[Place]:
@@ -43,34 +42,18 @@ async def list_places(
     if tags:
         query["tags"] = {"$in": list(tags)}
 
-    if latitude is not None and longitude is not None:
-        query["location"] = {
-            "$near": {
-                "$geometry": {"type": "Point", "coordinates": [longitude, latitude]},
-                "$maxDistance": 5_000,
-            }
+    query["location"] = {
+        "$near": {
+            "$geometry": {"type": "Point", "coordinates": [longitude, latitude]},
+            "$maxDistance": 5000,
         }
+    }
 
     cursor = collection.find(query).limit(limit)
     results: list[Place] = []
     async for doc in cursor:
         results.append(Place.from_mongo(doc))
 
-    if results:
-        return results
-
-    return FALLBACK_PLACES[: limit if limit > 0 else None]
-
-
-async def insert_sample_place(db: AsyncIOMotorDatabase, place: Place) -> str:
-    collection = db[PLACES_COLLECTION]
-    payload = {
-        "name": place.name,
-        "description": place.description,
-        "location": {"type": "Point", "coordinates": [place.coordinates.longitude, place.coordinates.latitude]},
-        "tags": place.tags,
-        "rating": place.rating,
-        "source": place.source,
-    }
-    result = await collection.insert_one(payload)
-    return str(result.inserted_id)
+    if not results:
+        return FALLBACK_PLACES[:limit]
+    return results

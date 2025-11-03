@@ -159,35 +159,6 @@ venv.bak/
 .dmypy.json
 dmypy.json
 
-# VSCode / IDE
-.vscode/
-.idea/
-
-# OS files
-.DS_Store
-Thumbs.db
-
-# Local runtime data
-*.db
-*.sqlite
-*.sqlite3
-*.log
-
-# Tests / coverage artifacts
-coverage/
-
-# Node / frontend
-node_modules/
-dist/
-*.local
-
-# Docker / compose overrides
-docker-compose.override.yml
-
-# Kubernetes generated files
-k8s/*.local.yaml
-k8s/*.generated.yaml
-
 # Pyre type checker
 .pyre/
 
@@ -215,7 +186,7 @@ cython_debug/
 #  that can be found at https://github.com/github/gitignore/blob/main/Global/VisualStudioCode.gitignore
 #  and can be added to the global gitignore or merged into this file. However, if you prefer, 
 #  you could uncomment the following to ignore the entire vscode folder
-.vscode/
+# .vscode/
 
 # Ruff stuff:
 .ruff_cache/
@@ -234,50 +205,3 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
-
-# ==========================================================
-#  프론트엔드 (Node.js/JavaScript) 추가
-# ==========================================================
-# Node modules
-node_modules/
-
-# Logs
-npm-debug.log
-yarn-error.log
-.pnpm-debug.log*
-
-# Build artifacts
-/dist
-/out
-/build
-/public/dist
-
-# Next.js/React Specific
-.next/
-out/
-
-# ==========================================================
-#  AI / ML (머신러닝) 추가
-# ==========================================================
-# Datasets and large binary files
-data/
-datasets/
-*.csv
-*.tsv
-*.parquet
-
-# Trained models and checkpoints
-models/
-model_weights/
-*.h5
-*.pth
-*.pt
-*.onnx
-
-# Experiment logs and results
-results/
-logs/
-checkpoints/
-tensorboard/
-runs/
-.env*

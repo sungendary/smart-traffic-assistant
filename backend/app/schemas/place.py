@@ -20,16 +20,14 @@ class Place(BaseModel):
     @classmethod
     def from_mongo(cls, doc: dict[str, Any]) -> "Place":
         location = doc.get("location") or {}
-        coordinates = Coordinates(
-            latitude=location.get("coordinates", [0, 0])[1],
-            longitude=location.get("coordinates", [0, 0])[0],
-        )
+        coords = location.get("coordinates", [0, 0])
+        longitude, latitude = (coords + [0, 0])[:2]
         return cls(
             id=str(doc.get("_id", "")),
-            name=doc.get("name", "미정"),
+            name=doc.get("name", ""),
             description=doc.get("description"),
-            coordinates=coordinates,
-            tags=doc.get("tags", []),
+            coordinates=Coordinates(latitude=latitude, longitude=longitude),
+            tags=list(doc.get("tags", [])),
             rating=doc.get("rating"),
             source=doc.get("source"),
         )

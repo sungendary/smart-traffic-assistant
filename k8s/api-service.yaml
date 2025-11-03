@@ -4,7 +4,6 @@ metadata:
   name: api
   namespace: dating-app
 spec:
-  type: ClusterIP
   selector:
     app: dating-app-api
   ports:

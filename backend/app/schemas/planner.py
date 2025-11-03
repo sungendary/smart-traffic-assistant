@@ -29,12 +29,6 @@ class PlanUpdate(BaseModel):
     stops: list[PlanStop] | None = None
 
 
-class PlanOut(BaseModel):
+class PlanOut(PlanCreate):
     id: str
     couple_id: str
-    title: str
-    date: str | None = None
-    emotion_goal: str | None = None
-    budget_range: str | None = None
-    notes: str | None = None
-    stops: list[PlanStop] = Field(default_factory=list)
