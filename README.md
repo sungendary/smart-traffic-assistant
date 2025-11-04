@@ -40,12 +40,31 @@
 ## 로컬 개발 (Docker Compose)
 1. `.env` 파일을 준비합니다.
 2. Docker Desktop 또는 호환 런타임을 실행합니다.
-3. 다음 명령으로 모든 서비스를 기동합니다.
-   ```bash
-   docker-compose up --build
-   ```
+3. Docker Compose 명령 사용법
+   - 첫 빌드 및 기동:  
+     ```bash
+     docker compose up --build
+     ```
+   - 백그라운드(데몬) 실행:  
+     ```bash
+     docker compose up -d
+     ```
+   - 로그 확인:  
+     ```bash
+     docker compose logs -f api
+     ```
+   - 서비스 재시작/정지/삭제:  
+     ```bash
+     docker compose restart api      # FastAPI만 재시작
+     docker compose stop             # 모든 컨테이너 정지
+     docker compose down             # 정지 + 네트워크 정리
+     docker compose down -v          # 정지 + 볼륨 삭제(데이터 초기화)
+     ```
 4. 브라우저에서 `http://localhost:8000` 접속 → 회원가입 후 로그인 → “주변 추천받기” 버튼으로 지도/추천 검증
-5. (선택) MongoDB 지오 인덱스 생성: `docker exec -it dating-app-mongo mongosh` → `db.places.createIndex({ location: "2dsphere" })`
+5. (선택) MongoDB 지오 인덱스 생성:  
+   ```bash
+   docker compose exec mongo mongosh --quiet --eval 'db=getSiblingDB("datingapp");db.places.createIndex({location:"2dsphere"})'
+   ```
 6. LangChain용 경량 LLM 모델 다운로드(최초 1회):
    ```bash
    docker compose exec llm ollama pull qwen2.5:0.5b

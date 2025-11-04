@@ -541,8 +541,9 @@ async function handleLogin(event) {
     state.accessToken = data.access_token;
     state.user = data.user;
     persistSession();
-    await loadInitialData();
     renderApp();
+    await loadInitialData();
+    switchView("map");
     setStatus("로그인 성공!");
   } catch (error) {
     alert(error.message);
@@ -806,6 +807,7 @@ async function bootstrap() {
   restoreSession();
   attachNavListeners();
   await initMap();
+  renderApp();
   if (state.accessToken) {
     try {
       await loadInitialData();
@@ -814,7 +816,7 @@ async function bootstrap() {
       sessionStorage.removeItem("sra-access-token");
     }
   }
-  renderApp();
+  switchView(state.currentView);
 }
 
 document.addEventListener("DOMContentLoaded", bootstrap);
