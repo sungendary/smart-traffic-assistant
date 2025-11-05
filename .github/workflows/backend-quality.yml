@@ -1,0 +1,63 @@
+name: Backend Quality
+
+on:
+  push:
+    paths:
+      - "backend/**"
+      - "backend/tests/**"
+      - "mypy.ini"
+      - "pytest.ini"
+      - "scripts/validate_experience.py"
+      - "scripts/validate_openapi.py"
+      - ".github/workflows/backend-quality.yml"
+  pull_request:
+    paths:
+      - "backend/**"
+      - "backend/tests/**"
+      - "mypy.ini"
+      - "pytest.ini"
+      - "scripts/validate_experience.py"
+      - "scripts/validate_openapi.py"
+      - ".github/workflows/backend-quality.yml"
+  workflow_dispatch:
+
+env:
+  PYTHON_VERSION: "3.11"
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: "pip"
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install project dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.txt
+          pip install ruff pytest pytest-cov httpx asgi-lifespan
+
+      - name: Lint with ruff
+        run: ruff check backend/app backend/tests
+
+      - name: Format check with ruff
+        run: ruff format --check backend/app backend/tests
+
+      - name: Run pytest with coverage
+        run: pytest backend/tests --maxfail=1 --disable-warnings --cov=backend.app --cov-report=xml
+
+      - name: Validate OpenAPI contract
+        run: python scripts/validate_openapi.py
+
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-coverage
+          path: coverage.xml
