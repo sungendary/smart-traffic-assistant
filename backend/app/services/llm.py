@@ -17,13 +17,15 @@ ITINERARY_PROMPT = ChatPromptTemplate.from_template(
     - 감정 상태: {emotion}
     - 선호 태그: {preferences}
     - 지역 설명: {location}
+    - 예산 범위: {budget}
+    - 날짜 및 날씨: {date} ({weather})
     - 추가 정보: {additional_context}
 
     각 제안은 JSON 객체로 작성하세요. 형식은 아래와 같습니다.
     [
       {{
-        "title": "20자 이내 제목",
-        "description": "두 문장 요약",
+        "title": "20자 이내 제목 (예산/날씨 고려)",
+        "description": "두 문장 요약 (예산과 날씨가 어떻게 반영되었는지 언급)",
         "suggested_places": ["장소명 - 추천 이유", "...", "..."],
         "tips": ["팁1", "팁2"]
       }}
