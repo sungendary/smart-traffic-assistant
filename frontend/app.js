@@ -13,6 +13,8 @@ const state = {
   llmSuggestions: [],
   isRightOpen: true,
   currentView: "map",
+  reportLoading: false,
+  summaryLoading: false,
 };
 
 function handleLogout() {
@@ -24,6 +26,8 @@ function handleLogout() {
     state.bookmarks = [];
     state.visits = [];
     state.report = null;
+    state.reportLoading = false;
+    state.summaryLoading = false;
     state.mapSuggestions = [];
     state.llmSuggestions = [];
     persistSession();
@@ -210,19 +214,27 @@ function renderRightPanel() {
     return;
   }
 
-  if (state.currentView === "reports" && state.report) {
+  if (state.currentView === "reports") {
+    if (!state.report) {
+      const pendingCard = document.createElement("div");
+      pendingCard.className = "card";
+      pendingCard.innerHTML = `<h2 class="section-title">리포트 데이터 준비 중</h2><p class="section-caption">월간 리포트를 불러오면 감정 통계가 여기에 표시됩니다.</p>`;
+      container.appendChild(pendingCard);
+      return;
+    }
+    const report = state.report;
     const card = document.createElement("div");
     card.className = "card";
     card.innerHTML = `
       <h2 class="section-title">감정 통계</h2>
       <ul class="tip-list">
-        ${Object.entries(state.report.emotion_stats)
+        ${Object.entries(report.emotion_stats || {})
           .map(([emotion, count]) => `<li>${emotion}: ${count}회</li>`)
           .join("")}
       </ul>
       <h2 class="section-title">챌린지 진행</h2>
       <ul class="tip-list">
-        ${state.report.challenge_progress
+        ${(report.challenge_progress || [])
           .map((c) => `<li>${c.badge_icon} ${c.title} (${c.current}/${c.goal})</li>`)
           .join("")}
       </ul>
@@ -438,21 +450,160 @@ function renderReportsView() {
     return;
   }
 
-  const card = document.createElement("div");
-  card.className = "card";
-  const month = state.report?.month || new Date().toISOString().slice(0, 7);
-  card.innerHTML = `
-    <h2 class="section-title">월간 리포트</h2>
+  if (!state.report && !state.reportLoading) {
+    state.reportLoading = true;
+    loadReport()
+      .then(() => renderApp())
+      .catch((error) => console.error(error));
+  }
+
+  if (state.reportLoading) {
+    sidebar.innerHTML = `<div class="card"><h2 class="section-title">리포트를 불러오는 중</h2><p class="section-caption">커플 선호 · 플래너 감정 목표 · 방문 기록을 수집하고 있어요.</p></div>`;
+    return;
+  }
+
+  if (!state.report) {
+    sidebar.innerHTML = `<div class="card"><h2 class="section-title">리포트 데이터를 찾지 못했습니다</h2><p class="section-caption">잠시 후 다시 시도하거나, 방문 기록과 감정 목표를 먼저 추가해 주세요.</p></div>`;
+    return;
+  }
+
+  const report = state.report;
+  const entries = Object.entries(report.emotion_stats || {});
+  const topEmotion = entries.length ? entries.sort((a, b) => b[1] - a[1])[0] : null;
+  const completedBadges = (report.challenge_progress || []).filter((c) => c.completed).length;
+  const preferredTags = report.preferred_tags || [];
+  const preferredEmotionGoals = report.preferred_emotion_goals || [];
+  const planEmotionGoals = report.plan_emotion_goals || [];
+
+  const highlightCard = document.createElement("div");
+  highlightCard.className = "card report-highlight-card";
+  highlightCard.innerHTML = `
+    <h2 class="section-title">${report.month} 하이라이트</h2>
+    <p class="section-caption">커플 선호, 플래너 감정 목표, 방문 기록 데이터를 한눈에 정리했어요.</p>
+  `;
+  const highlightGrid = document.createElement("div");
+  highlightGrid.className = "report-highlight-grid";
+  [
+    { label: "이번 달 방문", value: `${report.visit_count ?? 0}회`, caption: "방문 기록 기준" },
+    {
+      label: "선호 태그",
+      value: preferredTags.slice(0, 2).join(" · ") || "등록된 태그 없음",
+      caption: "커플 설정",
+    },
+    {
+      label: "커플 감정 목표",
+      value: preferredEmotionGoals.slice(0, 2).join(" · ") || "등록된 목표 없음",
+      caption: "커플 설정",
+    },
+    {
+      label: "플래너 감정 목표",
+      value: planEmotionGoals.slice(0, 2).join(" · ") || "플랜 없음",
+      caption: "플래너",
+    },
+  ].forEach((metric) => {
+    const pill = document.createElement("div");
+    pill.className = "report-highlight-pill";
+    pill.innerHTML = `
+      <p class="pill-label">${metric.label}</p>
+      <p class="pill-value">${metric.value}</p>
+      <p class="pill-caption">${metric.caption}</p>
+    `;
+    highlightGrid.appendChild(pill);
+  });
+  highlightCard.appendChild(highlightGrid);
+
+  const chipSections = [
+    { title: "커플 선호 태그", items: preferredTags, empty: "커플 창에서 태그를 추가해보세요." },
+    { title: "커플 감정 목표", items: preferredEmotionGoals, empty: "커플 창에서 감정 목표를 입력하세요." },
+    { title: "플래너 감정 목표", items: planEmotionGoals, empty: "플래너에 감정 목표가 있는 플랜을 만들어보세요." },
+  ];
+  chipSections.forEach((section) => {
+    const block = document.createElement("div");
+    block.className = "report-chip-section";
+    const title = document.createElement("p");
+    title.className = "pill-label";
+    title.textContent = section.title;
+    block.appendChild(title);
+    if (!section.items.length) {
+      const empty = document.createElement("p");
+      empty.className = "section-caption";
+      empty.textContent = section.empty;
+      block.appendChild(empty);
+    } else {
+      const chips = document.createElement("div");
+      chips.className = "inline-chips";
+      section.items.forEach((item) => {
+        const chip = document.createElement("span");
+        chip.className = "inline-chip";
+        chip.textContent = item;
+        chips.appendChild(chip);
+      });
+      block.appendChild(chips);
+    }
+    highlightCard.appendChild(block);
+  });
+
+  if (entries.length) {
+    const emotionList = document.createElement("ul");
+    emotionList.className = "report-emotion-list";
+    entries.forEach(([emotion, count]) => {
+      const li = document.createElement("li");
+      li.textContent = `${emotion} 기분 ${count}회`;
+      emotionList.appendChild(li);
+    });
+    highlightCard.appendChild(emotionList);
+  }
+  sidebar.appendChild(highlightCard);
+
+  const summaryCard = document.createElement("div");
+  summaryCard.className = "card report-summary-card";
+  const summaryTitle = document.createElement("h2");
+  summaryTitle.className = "section-title";
+  summaryTitle.textContent = "꼬마 매니저의 칭찬 편지";
+  summaryCard.appendChild(summaryTitle);
+  const summaryBody = document.createElement("p");
+  summaryBody.className = "report-summary-text";
+  summaryBody.textContent = report.summary || "토토에게 칭찬 편지를 부탁해보세요.";
+  summaryCard.appendChild(summaryBody);
+  if (report.summary) {
+    const childlikeLine = document.createElement("p");
+    childlikeLine.className = "report-childlike";
+    const emotionLine = topEmotion
+      ? `${topEmotion[0]} 기분이 ${topEmotion[1]}번이나 나왔네요!`
+      : "다음 기록도 궁금해요!";
+    childlikeLine.textContent = `🍓 토토 매니저: "${emotionLine} 다음 데이트도 제가 응원할게요!"`;
+    summaryCard.appendChild(childlikeLine);
+  } else if (state.summaryLoading) {
+    const loadingLine = document.createElement("p");
+    loadingLine.className = "section-caption";
+    loadingLine.textContent = "토토가 편지를 쓰는 중이에요...";
+    summaryCard.appendChild(loadingLine);
+  } else {
+    const button = document.createElement("button");
+    button.id = "generate-summary-btn";
+    button.className = "primary-btn";
+    button.textContent = "토토에게 칭찬 받기";
+    summaryCard.appendChild(button);
+  }
+  sidebar.appendChild(summaryCard);
+
+  const formCard = document.createElement("div");
+  formCard.className = "card";
+  const month = report.month || new Date().toISOString().slice(0, 7);
+  formCard.innerHTML = `
+    <h2 class="section-title">다른 달 리포트 보기</h2>
+    <p class="section-caption">월을 변경하면 커플 선호 · 플래너 감정 목표 · 방문 기록을 다시 수집합니다.</p>
     <form id="report-form" class="stack">
       <input type="month" name="month" value="${month}" />
       <button type="submit" class="primary-btn">리포트 확인</button>
     </form>
-    <div class="card" id="report-summary">
-      ${state.report ? `<p class="card-desc">${state.report.summary}</p>` : '<p class="section-caption">리포트를 불러오세요.</p>'}
-    </div>
   `;
-  sidebar.appendChild(card);
+  sidebar.appendChild(formCard);
   select("#report-form").addEventListener("submit", handleReportForm);
+  const summaryBtn = select("#generate-summary-btn");
+  if (summaryBtn) {
+    summaryBtn.addEventListener("click", () => loadReportSummary(report.month));
+  }
 }
 
 function renderLeftSidebar() {
@@ -711,8 +862,7 @@ async function handleReportForm(event) {
   event.preventDefault();
   const month = new FormData(event.target).get("month") || new Date().toISOString().slice(0, 7);
   try {
-    const data = await fetchJSON(`/api/reports/monthly?month=${month}`);
-    state.report = data;
+    await loadReport(month);
     renderApp();
   } catch (error) {
     alert(error.message);
@@ -753,7 +903,33 @@ async function loadVisits() {
 
 async function loadReport(month) {
   if (!state.user) return;
-  state.report = await fetchJSON(`/api/reports/monthly?month=${month || new Date().toISOString().slice(0, 7)}`);
+  state.reportLoading = true;
+  state.summaryLoading = false;
+  try {
+    state.report = await fetchJSON(`/api/reports/monthly?month=${month || new Date().toISOString().slice(0, 7)}`);
+  } catch (error) {
+    console.error("리포트 불러오기 실패", error);
+    throw error;
+  } finally {
+    state.reportLoading = false;
+  }
+}
+
+async function loadReportSummary(month) {
+  if (!state.user) return;
+  state.summaryLoading = true;
+  renderApp();
+  try {
+    const data = await fetchJSON(`/api/reports/monthly/summary?month=${month || new Date().toISOString().slice(0, 7)}`, {
+      method: "POST",
+    });
+    state.report = data;
+  } catch (error) {
+    alert(error.message);
+  } finally {
+    state.summaryLoading = false;
+    renderApp();
+  }
 }
 
 async function loadInitialData() {
@@ -771,6 +947,7 @@ async function loadInitialData() {
   try {
     await loadCouple();
     await Promise.all([loadPlans(), loadBookmarks(), loadVisits(), loadReport()]);
+    renderApp();
   } catch (error) {
     console.error(error);
   }
