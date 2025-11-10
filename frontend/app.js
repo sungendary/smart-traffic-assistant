@@ -215,31 +215,46 @@ function renderRightPanel() {
   }
 
   if (state.currentView === "reports") {
+    const summaryCard = document.createElement("div");
+    summaryCard.className = "card report-summary-card";
+    summaryCard.innerHTML = `<h2 class="section-title">꼬마 매니저의 칭찬 편지</h2>`;
     if (!state.report) {
-      const pendingCard = document.createElement("div");
-      pendingCard.className = "card";
-      pendingCard.innerHTML = `<h2 class="section-title">리포트 데이터 준비 중</h2><p class="section-caption">월간 리포트를 불러오면 감정 통계가 여기에 표시됩니다.</p>`;
-      container.appendChild(pendingCard);
+      summaryCard.innerHTML += `<p class="section-caption">리포트를 불러오면 토토에게 편지를 부탁할 수 있어요.</p>`;
+      container.appendChild(summaryCard);
       return;
     }
-    const report = state.report;
-    const card = document.createElement("div");
-    card.className = "card";
-    card.innerHTML = `
-      <h2 class="section-title">감정 통계</h2>
-      <ul class="tip-list">
-        ${Object.entries(report.emotion_stats || {})
-          .map(([emotion, count]) => `<li>${emotion}: ${count}회</li>`)
-          .join("")}
-      </ul>
-      <h2 class="section-title">챌린지 진행</h2>
-      <ul class="tip-list">
-        ${(report.challenge_progress || [])
-          .map((c) => `<li>${c.badge_icon} ${c.title} (${c.current}/${c.goal})</li>`)
-          .join("")}
-      </ul>
-    `;
-    container.appendChild(card);
+    const summaryBody = document.createElement("p");
+    summaryBody.className = "report-summary-text";
+    summaryBody.textContent = state.report.summary
+      ? state.report.summary
+      : "토토에게 칭찬 편지를 부탁해보세요.";
+    summaryCard.appendChild(summaryBody);
+
+    if (state.summaryLoading) {
+      const loadingLine = document.createElement("p");
+      loadingLine.className = "section-caption";
+      loadingLine.textContent = "토토가 편지를 쓰는 중이에요...";
+      summaryCard.appendChild(loadingLine);
+    } else if (!state.report.summary) {
+      const button = document.createElement("button");
+      button.id = "generate-summary-btn";
+      button.className = "primary-btn";
+      button.textContent = "토토에게 칭찬 받기";
+      summaryCard.appendChild(button);
+    } else {
+      const topEmotion = Object.entries(state.report.emotion_stats || {}).sort((a, b) => b[1] - a[1])[0];
+      const childlikeLine = document.createElement("p");
+      childlikeLine.className = "report-childlike";
+      const emotionLine = topEmotion ? `${topEmotion[0]} 기분이 ${topEmotion[1]}번이나 나왔네요!` : "다음 기록도 궁금해요!";
+      childlikeLine.textContent = `🍓 토토 매니저: "${emotionLine} 다음 데이트도 제가 응원할게요!"`;
+      summaryCard.appendChild(childlikeLine);
+    }
+    container.appendChild(summaryCard);
+    const summaryBtn = select("#generate-summary-btn");
+    if (summaryBtn) {
+      summaryBtn.addEventListener("click", () => loadReportSummary(state.report?.month));
+    }
+    return;
   }
 }
 
@@ -470,7 +485,6 @@ function renderReportsView() {
   const report = state.report;
   const entries = Object.entries(report.emotion_stats || {});
   const topEmotion = entries.length ? entries.sort((a, b) => b[1] - a[1])[0] : null;
-  const completedBadges = (report.challenge_progress || []).filter((c) => c.completed).length;
   const preferredTags = report.preferred_tags || [];
   const preferredEmotionGoals = report.preferred_emotion_goals || [];
   const planEmotionGoals = report.plan_emotion_goals || [];
@@ -511,7 +525,10 @@ function renderReportsView() {
     highlightGrid.appendChild(pill);
   });
   highlightCard.appendChild(highlightGrid);
+  sidebar.appendChild(highlightCard);
 
+  const preferenceCard = document.createElement("div");
+  preferenceCard.className = "card";
   const chipSections = [
     { title: "커플 선호 태그", items: preferredTags, empty: "커플 창에서 태그를 추가해보세요." },
     { title: "커플 감정 목표", items: preferredEmotionGoals, empty: "커플 창에서 감정 목표를 입력하세요." },
@@ -540,9 +557,16 @@ function renderReportsView() {
       });
       block.appendChild(chips);
     }
-    highlightCard.appendChild(block);
+    preferenceCard.appendChild(block);
   });
+  sidebar.appendChild(preferenceCard);
 
+  const detailGrid = document.createElement("div");
+  detailGrid.className = "report-detail-grid";
+
+  const emotionCard = document.createElement("div");
+  emotionCard.className = "card report-detail-card";
+  emotionCard.innerHTML = `<h2 class="section-title">감정 분포</h2>`;
   if (entries.length) {
     const emotionList = document.createElement("ul");
     emotionList.className = "report-emotion-list";
@@ -551,41 +575,30 @@ function renderReportsView() {
       li.textContent = `${emotion} 기분 ${count}회`;
       emotionList.appendChild(li);
     });
-    highlightCard.appendChild(emotionList);
-  }
-  sidebar.appendChild(highlightCard);
-
-  const summaryCard = document.createElement("div");
-  summaryCard.className = "card report-summary-card";
-  const summaryTitle = document.createElement("h2");
-  summaryTitle.className = "section-title";
-  summaryTitle.textContent = "꼬마 매니저의 칭찬 편지";
-  summaryCard.appendChild(summaryTitle);
-  const summaryBody = document.createElement("p");
-  summaryBody.className = "report-summary-text";
-  summaryBody.textContent = report.summary || "토토에게 칭찬 편지를 부탁해보세요.";
-  summaryCard.appendChild(summaryBody);
-  if (report.summary) {
-    const childlikeLine = document.createElement("p");
-    childlikeLine.className = "report-childlike";
-    const emotionLine = topEmotion
-      ? `${topEmotion[0]} 기분이 ${topEmotion[1]}번이나 나왔네요!`
-      : "다음 기록도 궁금해요!";
-    childlikeLine.textContent = `🍓 토토 매니저: "${emotionLine} 다음 데이트도 제가 응원할게요!"`;
-    summaryCard.appendChild(childlikeLine);
-  } else if (state.summaryLoading) {
-    const loadingLine = document.createElement("p");
-    loadingLine.className = "section-caption";
-    loadingLine.textContent = "토토가 편지를 쓰는 중이에요...";
-    summaryCard.appendChild(loadingLine);
+    emotionCard.appendChild(emotionList);
   } else {
-    const button = document.createElement("button");
-    button.id = "generate-summary-btn";
-    button.className = "primary-btn";
-    button.textContent = "토토에게 칭찬 받기";
-    summaryCard.appendChild(button);
+    emotionCard.innerHTML += `<p class="section-caption">아직 감정 기록이 없습니다.</p>`;
   }
-  sidebar.appendChild(summaryCard);
+  detailGrid.appendChild(emotionCard);
+
+  const challengeCard = document.createElement("div");
+  challengeCard.className = "card report-detail-card";
+  challengeCard.innerHTML = `<h2 class="section-title">챌린지 진행</h2>`;
+  const progressList = document.createElement("ul");
+  progressList.className = "tip-list";
+  (report.challenge_progress || []).forEach((c) => {
+    const li = document.createElement("li");
+    li.textContent = `${c.badge_icon} ${c.title} (${c.current}/${c.goal})`;
+    progressList.appendChild(li);
+  });
+  if ((report.challenge_progress || []).length === 0) {
+    challengeCard.innerHTML += `<p class="section-caption">아직 완료한 챌린지가 없습니다.</p>`;
+  } else {
+    challengeCard.appendChild(progressList);
+  }
+  detailGrid.appendChild(challengeCard);
+
+  sidebar.appendChild(detailGrid);
 
   const formCard = document.createElement("div");
   formCard.className = "card";
@@ -600,10 +613,6 @@ function renderReportsView() {
   `;
   sidebar.appendChild(formCard);
   select("#report-form").addEventListener("submit", handleReportForm);
-  const summaryBtn = select("#generate-summary-btn");
-  if (summaryBtn) {
-    summaryBtn.addEventListener("click", () => loadReportSummary(report.month));
-  }
 }
 
 function renderLeftSidebar() {

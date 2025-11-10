@@ -458,6 +458,17 @@ textarea:focus {
   font-weight: 600;
 }
 
+.report-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 18px;
+  margin-top: 20px;
+}
+
+.report-detail-card {
+  min-height: 180px;
+}
+
 @media (max-width: 1080px) {
   .layout {
     grid-template-columns: 1fr;
