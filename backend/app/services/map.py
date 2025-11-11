@@ -32,6 +32,8 @@ async def get_map_suggestions(
             "emotion": emotion,
             "preferences": ", ".join(preferences) or "없음",
             "location": location_text,
+            "weather": "날씨 정보 없음",  # 기본값
+            "budget": "제한 없음",  # 기본값
             "additional_context": additional_context or "",
             "budget": budget or "정보 없음",
             "date": str(date) if date else "정보 없음",

@@ -100,17 +100,45 @@ textarea {
 .ghost-btn {
   border: 1px solid var(--border);
   border-radius: 999px;
-  padding: 8px 16px;
-  background: transparent;
+  padding: 8px 18px;
+  background: #fff;
   color: var(--text);
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
-.ghost-btn:hover,
-.ghost-btn:focus {
+.ghost-btn:hover {
+  background: var(--surface-muted);
+}
+
+/* 태그 버튼 스타일 */
+.preference-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.tag-btn {
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 6px 14px;
+  background: #fff;
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 0.85rem;
+}
+
+.tag-btn:hover {
+  background: var(--accent-soft);
   border-color: var(--accent);
-  color: var(--accent);
+}
+
+.tag-btn.active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
 }
 
 .layout {

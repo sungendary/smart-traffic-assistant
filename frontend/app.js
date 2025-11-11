@@ -13,6 +13,11 @@ const state = {
   llmSuggestions: [],
   isRightOpen: true,
   currentView: "map",
+  // 추천 관련 상태
+  currentWeather: null,
+  selectedPreferences: [],
+  selectedBudget: "medium",
+  smartRecommendations: null,
 };
 
 function handleLogout() {
@@ -268,42 +273,90 @@ function renderMapView() {
   const formCard = document.createElement("div");
   formCard.className = "card";
   formCard.innerHTML = `
-    <h2 class="section-title">데이트 추천 필터</h2>
+    <h2 class="section-title">스마트 데이트 추천 받기</h2>
     <form id="suggest-form" class="stack">
-      <input type="text" name="location_text" placeholder="지역 설명 (예: 서울 종로구)" value="서울" required />
+      <label>
+        <strong>예산 범위</strong>
+        <select name="budget_range" required>
+          <option value="free">무료</option>
+          <option value="low">3만원 이하</option>
+          <option value="medium" selected>3~8만원</option>
+          <option value="high">8~15만원</option>
+          <option value="premium">15만원 이상</option>
+        </select>
+      </label>
+      <label>
+        <strong>취향 선택 (다중 선택 가능)</strong>
+        <div class="preference-tags" id="preference-tags">
+          <button type="button" class="tag-btn" data-tag="romantic">낭만적인</button>
+          <button type="button" class="tag-btn" data-tag="energetic">활동적인</button>
+          <button type="button" class="tag-btn" data-tag="relaxing">힐링</button>
+          <button type="button" class="tag-btn" data-tag="food">맛집</button>
+          <button type="button" class="tag-btn" data-tag="nature">자연</button>
+          <button type="button" class="tag-btn" data-tag="indoor">실내</button>
+          <button type="button" class="tag-btn" data-tag="outdoor">야외</button>
+          <button type="button" class="tag-btn" data-tag="quiet">조용한</button>
+          <button type="button" class="tag-btn" data-tag="trendy">트렌디</button>
+        </div>
+      </label>
       <select name="emotion">
-        <option value="설렘">설렘</option>
+        <option value="">감정 선택 (선택사항)</option>
+        <option value="행복한">행복한</option>
+        <option value="설레는">설레는</option>
+        <option value="평온한">평온한</option>
         <option value="힐링">힐링</option>
         <option value="편안함">편안함</option>
         <option value="위로">위로</option>
         <option value="즐거움">즐거움</option>
       </select>
-      <input type="text" name="preferences" placeholder="선호 태그를 쉼표로 입력 (예: 카페, 야경)" />
-      <textarea name="additional_context" rows="3" placeholder="추가 요청 사항 (선택)"></textarea>
-      <button type="submit" class="primary-btn">추천 받기</button>
+      <input type="text" name="location_desc" placeholder="지역 설명 (예: 강남역)" value="서울" />
+      <button type="submit" class="primary-btn">💡 스마트 추천 받기</button>
     </form>
   `;
 
+  // 날씨 정보 카드
+  const weatherCard = document.createElement("div");
+  weatherCard.className = "card";
+  weatherCard.id = "weather-card";
+  if (state.currentWeather) {
+    const w = state.currentWeather;
+    weatherCard.innerHTML = `
+      <h3 class="section-title">🌤️ 현재 날씨</h3>
+      <p>${w.description} · ${w.temperature}°C (체감 ${w.feels_like}°C)</p>
+      <p class="subtext">습도 ${w.humidity}% · 바람 ${w.wind_speed}m/s</p>
+    `;
+  } else {
+    weatherCard.innerHTML = `<h3 class="section-title">🌤️ 날씨 정보</h3><p class="subtext">추천을 받으면 날씨 정보가 표시됩니다</p>`;
+  }
+
   const resultCard = document.createElement("div");
   resultCard.className = "card";
-  if (!state.mapSuggestions.length) {
-    resultCard.innerHTML = `<h2 class="section-title">추천 장소</h2><p class="section-caption">추천 결과가 여기에 표시됩니다.</p>`;
+  if (!state.smartRecommendations) {
+    resultCard.innerHTML = `<h2 class="section-title">추천 결과</h2><p class="section-caption">위 폼을 작성하고 추천 받기를 눌러주세요.</p>`;
   } else {
-    resultCard.innerHTML = `<h2 class="section-title">추천 장소 (${state.mapSuggestions.length})</h2>`;
+    const rec = state.smartRecommendations;
+    resultCard.innerHTML = `
+      <h2 class="section-title">🎯 추천 장소 (${rec.recommended_places.length}개)</h2>
+      <p class="subtext">${rec.budget_info.description}</p>
+    `;
     const list = document.createElement("div");
     list.className = "stack";
-    state.mapSuggestions.forEach((place) => {
+    rec.recommended_places.slice(0, 10).forEach((place) => {
       const card = document.createElement("div");
       card.className = "card sub";
       card.innerHTML = `
         <header class="card-header">
           <div>
-            <h3 class="card-title">${place.name}</h3>
-            <p class="subtext">${place.description || "설명이 없습니다."}</p>
+            <h3 class="card-title">${place.place_name}</h3>
+            <p class="subtext">${place.description || place.category_name}</p>
+            <div class="pill-list">${place.tags.map((tag) => `<span class="inline-chip">${tag}</span>`).join("")}</div>
+            <p class="subtext" style="margin-top:8px;">
+              점수: ${(place.recommendation_score * 100).toFixed(0)}점 | 
+              예상비용: ${place.estimated_cost.toLocaleString()}원 | 
+              평점: ⭐${place.rating}
+            </p>
           </div>
-          <button class="primary-outline" data-action="bookmark" data-place='${JSON.stringify(place)}'>북마크</button>
         </header>
-        <div class="pill-list">${place.tags.map((tag) => `<span class="inline-chip">${tag}</span>`).join("")}</div>
       `;
       list.appendChild(card);
     });
@@ -311,12 +364,26 @@ function renderMapView() {
   }
 
   sidebar.appendChild(formCard);
+  sidebar.appendChild(weatherCard);
   sidebar.appendChild(resultCard);
 
-  select("#suggest-form").addEventListener("submit", handleSuggestForm);
-  selectAll('[data-action="bookmark"]').forEach((btn) =>
-    btn.addEventListener("click", () => handleBookmark(JSON.parse(btn.dataset.place)))
-  );
+  // 태그 선택 기능
+  selectAll(".tag-btn").forEach((btn) => {
+    if (state.selectedPreferences.includes(btn.dataset.tag)) {
+      btn.classList.add("active");
+    }
+    btn.addEventListener("click", () => {
+      btn.classList.toggle("active");
+      const tag = btn.dataset.tag;
+      if (state.selectedPreferences.includes(tag)) {
+        state.selectedPreferences = state.selectedPreferences.filter((t) => t !== tag);
+      } else {
+        state.selectedPreferences.push(tag);
+      }
+    });
+  });
+
+  select("#suggest-form").addEventListener("submit", handleSmartRecommendation);
 }
 
 function renderPlannerView() {
@@ -582,6 +649,59 @@ async function handleSuggestForm(event) {
   } catch (error) {
     console.error(error);
     setStatus(error.message, "error");
+  }
+}
+
+async function handleSmartRecommendation(event) {
+  event.preventDefault();
+  if (!state.user) {
+    alert("로그인이 필요합니다.");
+    return;
+  }
+  
+  const formData = new FormData(event.target);
+  const params = new URLSearchParams({
+    lat: state.center.latitude,
+    lon: state.center.longitude,
+    budget_range: formData.get("budget_range") || "medium",
+    emotion: formData.get("emotion") || "",
+    location_desc: formData.get("location_desc") || "서울"
+  });
+  
+  // 선택된 취향 태그 추가
+  state.selectedPreferences.forEach(tag => {
+    params.append("preferences", tag);
+  });
+  
+  try {
+    setStatus("🔍 스마트 추천 생성 중... (날씨 확인, 장소 분석)", "info");
+    
+    const data = await fetchJSON(`/api/recommendations/recommend?${params.toString()}`, {
+      method: "POST"
+    });
+    
+    state.smartRecommendations = data;
+    state.currentWeather = data.weather;
+    state.llmSuggestions = data.ai_course_suggestions || [];
+    
+    // 지도에 마커 표시
+    if (data.recommended_places && data.recommended_places.length > 0) {
+      const placesForMap = data.recommended_places.map(p => ({
+        coordinates: p.coordinates,
+        name: p.place_name,
+        description: p.description,
+        tags: p.tags
+      }));
+      addMarkers(placesForMap);
+    }
+    
+    const summary = `✨ ${data.recommended_places.length}개 장소 추천 완료! (날씨: ${data.weather.description})`;
+    setStatus(summary, "success");
+    renderApp();
+    
+  } catch (error) {
+    console.error("스마트 추천 오류:", error);
+    setStatus(`추천 실패: ${error.message}`, "error");
   }
 }
 
