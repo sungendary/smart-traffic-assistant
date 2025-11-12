@@ -49,12 +49,17 @@ env:
 
 jobs:
   # 프로덕션 배포 승인 대기
+  # GitHub 환경 보호 규칙을 사용하여 승인 처리
+  # 리포지토리 Settings > Environments > production에서 승인자 설정 필요
   approval:
     runs-on: ubuntu-latest
     if: |
       (github.event.workflow_run.conclusion == 'success' ||
        github.event_name == 'workflow_dispatch') &&
       !github.event.inputs.skip_approval
+    environment:
+      name: production
+      url: https://api.yourdomain.com  # 실제 프로덕션 URL
     steps:
       - name: Verify CI Integration passed
         if: github.event_name == 'workflow_run'
@@ -65,27 +70,23 @@ jobs:
           fi
           echo "✅ CI Integration passed. Proceeding to approval."
       
-      - name: Wait for approval
-        uses: tr string/await-approval@v1
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          reviewers: ''  # 리뷰어 지정 (예: 'user1,user2')
-          minimum-approvals: 1
-          issue-title: 'Production Deployment Approval'
-          issue-body: |
-            ## Production Deployment Request
-            
-            **Branch:** ${{ github.ref }}
-            **Commit:** ${{ github.sha }}
-            **Actor:** ${{ github.actor }}
-            
-            ### Pre-deployment Checklist
-            - [ ] All CI checks passed
-            - [ ] Security scan passed
-            - [ ] Manual testing completed
-            - [ ] Rollback plan reviewed
-            
-            Please review and approve this deployment.
+      # GitHub 환경 보호 규칙을 사용하여 승인 처리
+      # 리포지토리 Settings > Environments > production에서 승인자 설정 필요
+      - name: Approval notification
+        run: |
+          echo "## Production Deployment Approval" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch:** ${{ github.ref }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Actor:** ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Pre-deployment Checklist" >> $GITHUB_STEP_SUMMARY
+          echo "- [ ] All CI checks passed" >> $GITHUB_STEP_SUMMARY
+          echo "- [ ] Security scan passed" >> $GITHUB_STEP_SUMMARY
+          echo "- [ ] Manual testing completed" >> $GITHUB_STEP_SUMMARY
+          echo "- [ ] Rollback plan reviewed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Waiting for approval from configured reviewers..." >> $GITHUB_STEP_SUMMARY
 
   # 프로덕션 배포 작업
   deploy:
@@ -94,7 +95,7 @@ jobs:
     if: |
       (github.event.workflow_run.conclusion == 'success' ||
        github.event_name == 'workflow_dispatch') &&
-      (github.event.inputs.skip_approval == true || needs.approval.outputs.approved == 'true')
+      (github.event.inputs.skip_approval == true || needs.approval.result == 'success')
     
     environment:
       name: production
