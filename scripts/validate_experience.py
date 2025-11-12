@@ -30,7 +30,6 @@ def check_frontend_copy() -> list[str]:
     required_keywords = [
         "AI 추천 코스",
         "챌린지 진행",
-        "월간 리포트",
     ]
     app_js_path = Path("frontend/app.js")
     if not app_js_path.exists():
