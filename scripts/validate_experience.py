@@ -37,7 +37,7 @@ def check_frontend_copy() -> list[str]:
         return ["frontend/app.js 파일을 찾을 수 없습니다."]
 
     try:
-    text = app_js_path.read_text(encoding="utf-8")
+        text = app_js_path.read_text(encoding="utf-8")
     except UnicodeDecodeError:
         # UTF-8 실패 시 다른 인코딩 시도
         try:
