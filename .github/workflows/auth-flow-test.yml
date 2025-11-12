@@ -12,7 +12,12 @@
 #   6. 인증된 사용자 정보 조회 (GET /api/auth/me)
 #
 # 실행 조건:
-#   - backend/** 경로의 파일이 변경될 때
+#   - 인증 관련 파일이 변경될 때만 실행
+#     * 테스트 파일: backend/tests/auth/**
+#     * 인증 라우트: backend/app/api/routes/auth.py
+#     * 인증/보안 코드: backend/app/core/auth.py, backend/app/core/security.py
+#     * 사용자 서비스: backend/app/services/users.py
+#   - 워크플로우 파일 자체가 변경될 때
 #   - 수동 실행 (workflow_dispatch)
 # ============================================================================
 
@@ -21,11 +26,29 @@ name: Authentication Flow Test
 on:
   push:
     paths:
-      - "backend/**"
+      # 인증 테스트 파일
+      - "backend/tests/auth/**"
+      # 인증 API 라우트
+      - "backend/app/api/routes/auth.py"
+      # 인증/보안 코어 코드
+      - "backend/app/core/auth.py"
+      - "backend/app/core/security.py"
+      # 사용자 서비스
+      - "backend/app/services/users.py"
+      # 워크플로우 파일
       - ".github/workflows/auth-flow-test.yml"
   pull_request:
     paths:
-      - "backend/**"
+      # 인증 테스트 파일
+      - "backend/tests/auth/**"
+      # 인증 API 라우트
+      - "backend/app/api/routes/auth.py"
+      # 인증/보안 코어 코드
+      - "backend/app/core/auth.py"
+      - "backend/app/core/security.py"
+      # 사용자 서비스
+      - "backend/app/services/users.py"
+      # 워크플로우 파일
       - ".github/workflows/auth-flow-test.yml"
   workflow_dispatch:  # GitHub Actions UI에서 수동 실행 가능
   workflow_call:  # 다른 워크플로우에서 호출 가능

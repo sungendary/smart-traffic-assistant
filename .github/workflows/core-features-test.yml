@@ -19,7 +19,11 @@
 #     - GET /api/reports/monthly - 월간 리포트 생성 스모크 테스트
 #
 # 실행 조건:
-#   - backend/** 경로의 파일이 변경될 때
+#   - 핵심 기능 관련 파일이 변경될 때만 실행
+#     * 테스트 파일: backend/tests/core_features/**
+#     * API 라우트: map.py, planner.py, challenges.py, visits.py, reports.py
+#     * 서비스: map.py, planner.py, challenges.py, reports.py
+#   - 워크플로우 파일 자체가 변경될 때
 #   - 수동 실행 (workflow_dispatch)
 # ============================================================================
 
@@ -28,11 +32,37 @@ name: Core Features Test
 on:
   push:
     paths:
-      - "backend/**"
+      # 핵심 기능 테스트 파일
+      - "backend/tests/core_features/**"
+      # 핵심 기능 API 라우트
+      - "backend/app/api/routes/map.py"
+      - "backend/app/api/routes/planner.py"
+      - "backend/app/api/routes/challenges.py"
+      - "backend/app/api/routes/visits.py"
+      - "backend/app/api/routes/reports.py"
+      # 핵심 기능 서비스
+      - "backend/app/services/map.py"
+      - "backend/app/services/planner.py"
+      - "backend/app/services/challenges.py"
+      - "backend/app/services/reports.py"
+      # 워크플로우 파일
       - ".github/workflows/core-features-test.yml"
   pull_request:
     paths:
-      - "backend/**"
+      # 핵심 기능 테스트 파일
+      - "backend/tests/core_features/**"
+      # 핵심 기능 API 라우트
+      - "backend/app/api/routes/map.py"
+      - "backend/app/api/routes/planner.py"
+      - "backend/app/api/routes/challenges.py"
+      - "backend/app/api/routes/visits.py"
+      - "backend/app/api/routes/reports.py"
+      # 핵심 기능 서비스
+      - "backend/app/services/map.py"
+      - "backend/app/services/planner.py"
+      - "backend/app/services/challenges.py"
+      - "backend/app/services/reports.py"
+      # 워크플로우 파일
       - ".github/workflows/core-features-test.yml"
   workflow_dispatch:  # GitHub Actions UI에서 수동 실행 가능
   workflow_call:  # 다른 워크플로우에서 호출 가능

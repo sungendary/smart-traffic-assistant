@@ -14,9 +14,12 @@
 #   8. 커버리지 리포트 생성 및 아티팩트 업로드
 #
 # 실행 조건:
-#   - backend/** 경로의 파일이 변경될 때
-#   - 테스트 설정 파일(mypy.ini, pytest.ini)이 변경될 때
-#   - 검증 스크립트가 변경될 때
+#   - 백엔드 코드 품질 관련 파일이 변경될 때만 실행
+#     * 테스트 파일: backend/tests/** (단, core_features, db, auth 제외)
+#     * 애플리케이션 코드: backend/app/** (단, 특정 라우트/서비스 제외)
+#     * 설정 파일: mypy.ini, pytest.ini
+#     * 검증 스크립트: scripts/validate_*.py
+#   - 워크플로우 파일 자체가 변경될 때
 #   - 수동 실행 (workflow_dispatch)
 # ============================================================================
 
@@ -25,19 +28,61 @@ name: Backend Quality
 on:
   push:
     paths:
-      - "backend/**"
+      # 일반 테스트 파일 (핵심 기능/DB/인증 테스트 제외)
+      - "backend/tests/journey/**"
+      - "backend/tests/llm/**"
+      - "backend/tests/integration/**"
+      - "backend/tests/test_api.py"
+      # 애플리케이션 코드 (핵심 기능/DB/인증 제외)
+      - "backend/app/api/routes/bookmarks.py"
+      - "backend/app/api/routes/couples.py"
+      - "backend/app/api/routes/config.py"
+      - "backend/app/api/routes/health.py"
+      - "backend/app/core/config.py"
+      - "backend/app/dependencies.py"
+      - "backend/app/main.py"
+      - "backend/app/schemas/**"
+      - "backend/app/services/bookmarks.py"
+      - "backend/app/services/couples.py"
+      - "backend/app/services/llm.py"
+      - "backend/app/services/places.py"
+      - "backend/app/services/visits.py"
+      # 설정 파일
       - "mypy.ini"
       - "pytest.ini"
+      # 검증 스크립트
       - "scripts/validate_experience.py"
       - "scripts/validate_openapi.py"
+      # 워크플로우 파일
       - ".github/workflows/backend-quality.yml"
   pull_request:
     paths:
-      - "backend/**"
+      # 일반 테스트 파일 (핵심 기능/DB/인증 테스트 제외)
+      - "backend/tests/journey/**"
+      - "backend/tests/llm/**"
+      - "backend/tests/integration/**"
+      - "backend/tests/test_api.py"
+      # 애플리케이션 코드 (핵심 기능/DB/인증 제외)
+      - "backend/app/api/routes/bookmarks.py"
+      - "backend/app/api/routes/couples.py"
+      - "backend/app/api/routes/config.py"
+      - "backend/app/api/routes/health.py"
+      - "backend/app/core/config.py"
+      - "backend/app/dependencies.py"
+      - "backend/app/main.py"
+      - "backend/app/schemas/**"
+      - "backend/app/services/bookmarks.py"
+      - "backend/app/services/couples.py"
+      - "backend/app/services/llm.py"
+      - "backend/app/services/places.py"
+      - "backend/app/services/visits.py"
+      # 설정 파일
       - "mypy.ini"
       - "pytest.ini"
+      # 검증 스크립트
       - "scripts/validate_experience.py"
       - "scripts/validate_openapi.py"
+      # 워크플로우 파일
       - ".github/workflows/backend-quality.yml"
   workflow_dispatch:  # GitHub Actions UI에서 수동 실행 가능
   workflow_call:  # 다른 워크플로우에서 호출 가능
