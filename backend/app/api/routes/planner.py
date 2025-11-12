@@ -5,7 +5,7 @@ from ...core.auth import get_current_user
 from ...dependencies import get_mongo_db
 from ...schemas import PlanCreate, PlanOut, PlanUpdate, UserPublic
 from ...services.couples import get_or_create_couple
-from ...services.planner import create_plan, delete_plan, list_plans, update_plan
+from ...services.planner import create_plan, delete_plan, get_plan, list_plans, update_plan
 
 router = APIRouter()
 
