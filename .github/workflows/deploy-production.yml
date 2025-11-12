@@ -44,7 +44,7 @@ on:
 
 env:
   KUBERNETES_NAMESPACE: dating-app-prod
-  IMAGE_NAME: ghcr.io/${{ github.repository }}/dating-app-api
+  IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/dating-app-api
   PRODUCTION_URL: ""  # 실제 프로덕션 URL이 있으면 설정 (예: https://api.yourdomain.com)
 
 jobs:
