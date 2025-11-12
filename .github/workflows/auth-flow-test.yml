@@ -1,0 +1,174 @@
+# ============================================================================
+# Authentication Flow Test Workflow
+# ============================================================================
+# 목적: 회원가입-로그인 과정이 제대로 이루어지는지 검증
+# 
+# 주요 기능:
+#   1. 회원가입 API 테스트 (POST /api/auth/signup)
+#   2. 로그인 API 테스트 (POST /api/auth/login)
+#   3. JWT 토큰 발급 및 검증
+#   4. Refresh Token 갱신 테스트
+#   5. 로그아웃 테스트
+#   6. 인증된 사용자 정보 조회 (GET /api/auth/me)
+#
+# 실행 조건:
+#   - 인증 관련 파일이 변경될 때만 실행
+#     * 테스트 파일: backend/tests/auth/**
+#     * 인증 라우트: backend/app/api/routes/auth.py
+#     * 인증/보안 코드: backend/app/core/auth.py, backend/app/core/security.py
+#     * 사용자 서비스: backend/app/services/users.py
+#   - 워크플로우 파일 자체가 변경될 때
+#   - 수동 실행 (workflow_dispatch)
+# ============================================================================
+
+name: Authentication Flow Test
+
+on:
+  push:
+    paths:
+      # 인증 테스트 파일
+      - "backend/tests/auth/**"
+      # 인증 API 라우트
+      - "backend/app/api/routes/auth.py"
+      # 인증/보안 코어 코드
+      - "backend/app/core/auth.py"
+      - "backend/app/core/security.py"
+      # 사용자 서비스
+      - "backend/app/services/users.py"
+      # 워크플로우 파일
+      - ".github/workflows/auth-flow-test.yml"
+  pull_request:
+    paths:
+      # 인증 테스트 파일
+      - "backend/tests/auth/**"
+      # 인증 API 라우트
+      - "backend/app/api/routes/auth.py"
+      # 인증/보안 코어 코드
+      - "backend/app/core/auth.py"
+      - "backend/app/core/security.py"
+      # 사용자 서비스
+      - "backend/app/services/users.py"
+      # 워크플로우 파일
+      - ".github/workflows/auth-flow-test.yml"
+  workflow_dispatch:  # GitHub Actions UI에서 수동 실행 가능
+  workflow_call:  # 다른 워크플로우에서 호출 가능
+
+env:
+  PYTHON_VERSION: "3.11"
+  STARLETTE_VERSION: "0.49.1"
+
+jobs:
+  # 인증 플로우 테스트 작업
+  test-auth-flow:
+    runs-on: ubuntu-latest
+    services:
+      # MongoDB 서비스
+      mongodb:
+        image: mongo:6.0
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --eval 'db.adminCommand(\"ping\")'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        env:
+          MONGO_INITDB_DATABASE: datingapp
+
+      # Redis 서비스
+      redis:
+        image: redis:7.2
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      CI: "true"  # CI 환경임을 명시
+      MONGODB_URI: mongodb://localhost:27017
+      MONGODB_DB: datingapp
+      REDIS_URL: redis://localhost:6379/0
+      JWT_SECRET_KEY: test-secret-key-for-ci-testing-only-minimum-32-chars
+      ACCESS_TOKEN_EXPIRE_MINUTES: 30
+      REFRESH_TOKEN_EXPIRE_MINUTES: 1440
+      PASSWORD_HASH_SCHEME: argon2
+
+    steps:
+      # 저장소 코드 체크아웃
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Python 환경 설정
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: "pip"
+          cache-dependency-path: backend/requirements.txt
+
+      # 프로젝트 의존성 설치
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip setuptools
+          pip install -r backend/requirements.txt
+          pip install --no-deps starlette==${{ env.STARLETTE_VERSION }}
+          pip install pytest pytest-asyncio httpx asgi-lifespan
+
+      # 회원가입 테스트
+      - name: Test User Signup
+        run: |
+          pytest backend/tests/auth/test_signup.py -v
+        continue-on-error: false
+
+      # 로그인 테스트
+      - name: Test User Login
+        run: |
+          pytest backend/tests/auth/test_login.py -v
+        continue-on-error: false
+
+      # JWT 토큰 검증 테스트
+      - name: Test JWT Token Validation
+        run: |
+          pytest backend/tests/auth/test_jwt_tokens.py -v
+        continue-on-error: false
+
+      # Refresh Token 갱신 테스트
+      - name: Test Refresh Token
+        run: |
+          pytest backend/tests/auth/test_refresh_token.py -v
+        continue-on-error: false
+
+      # 로그아웃 테스트
+      - name: Test Logout
+        run: |
+          pytest backend/tests/auth/test_logout.py -v
+        continue-on-error: false
+
+      # 인증된 사용자 정보 조회 테스트
+      - name: Test Authenticated User Info
+        run: |
+          pytest backend/tests/auth/test_me_endpoint.py -v
+        continue-on-error: false
+
+      # 전체 인증 플로우 통합 테스트
+      - name: Test Complete Auth Flow
+        run: |
+          pytest backend/tests/auth/test_complete_flow.py -v
+        continue-on-error: false
+
+      # 테스트 결과 요약
+      - name: Auth Test Summary
+        if: always()
+        run: |
+          echo "## Authentication Flow Test Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ 회원가입 (Signup)" >> $GITHUB_STEP_SUMMARY
+          echo "✅ 로그인 (Login)" >> $GITHUB_STEP_SUMMARY
+          echo "✅ JWT 토큰 발급 및 검증" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Refresh Token 갱신" >> $GITHUB_STEP_SUMMARY
+          echo "✅ 로그아웃" >> $GITHUB_STEP_SUMMARY
+          echo "✅ 인증된 사용자 정보 조회" >> $GITHUB_STEP_SUMMARY
+
