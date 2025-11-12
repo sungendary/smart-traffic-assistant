@@ -44,6 +44,11 @@ on:
       - develop_branch
   workflow_dispatch:  # GitHub Actions UI에서 수동 실행 가능
 
+# workflow_call로 호출되는 워크플로우에 권한 전달
+permissions:
+  contents: read
+  pull-requests: read  # security-baseline의 gitleaks PR 스캔을 위해 필요
+
 jobs:
   # 코드 품질 검증 (린팅, 포맷팅, OpenAPI 검증)
   code-quality:
