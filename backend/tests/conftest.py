@@ -103,41 +103,20 @@ def mock_llm_service(monkeypatch: pytest.MonkeyPatch) -> None:
     """
     LLM 서비스를 mock하는 fixture
     CI 환경에서는 LLM 서비스가 없으므로 mock 응답을 반환합니다.
+    _invoke 함수를 직접 mock하여 chain을 사용하지 않도록 합니다.
     """
-    # get_llm() 함수의 캐시를 클리어하고 mock으로 대체
-    try:
-        llm_service.get_llm.cache_clear()  # type: ignore[attr-defined]
-    except AttributeError:
-        pass  # 캐시가 없을 수도 있음
+    # _invoke 함수를 직접 mock하여 chain 사용을 완전히 우회
+    async def mock_invoke(prompt_template: Any, kwargs: dict[str, Any]) -> str:
+        """LLM 호출을 완전히 우회하고 테스트용 JSON 응답 반환"""
+        # ITINERARY_PROMPT인 경우
+        if "emotion" in kwargs or "preferences" in kwargs:
+            return '[{"title": "테스트 데이트 코스", "description": "테스트용 데이트 코스 설명입니다.", "suggested_places": ["테스트 장소 1", "테스트 장소 2", "테스트 장소 3"], "tips": ["테스트 팁 1", "테스트 팁 2"]}]'
+        # REPORT_PROMPT인 경우
+        else:
+            return "테스트용 리포트 요약입니다. 이번 달에는 많은 활동을 하셨네요."
     
-    # Mock ChatOllama 클래스
-    class MockChatOllama:
-        """Mock ChatOllama 클래스 - 실제 연결 없이 동작"""
-        def __init__(self, *args: Any, **kwargs: Any) -> None:
-            pass
-        
-        async def ainvoke(self, *args: Any, **kwargs: Any) -> Any:
-            """Mock 응답 반환"""
-            class MockResponse:
-                content = '[{"title": "테스트 데이트 코스", "description": "테스트용 데이트 코스 설명입니다.", "suggested_places": ["테스트 장소 1", "테스트 장소 2", "테스트 장소 3"], "tips": ["테스트 팁 1", "테스트 팁 2"]}]'
-            return MockResponse()
-        
-        def invoke(self, *args: Any, **kwargs: Any) -> Any:
-            """동기 버전 mock 응답"""
-            class MockResponse:
-                content = '[{"title": "테스트 데이트 코스", "description": "테스트용 데이트 코스 설명입니다.", "suggested_places": ["테스트 장소 1", "테스트 장소 2", "테스트 장소 3"], "tips": ["테스트 팁 1", "테스트 팁 2"]}]'
-            return MockResponse()
-    
-    # get_llm() 함수를 mock으로 대체
-    def mock_get_llm() -> MockChatOllama:
-        return MockChatOllama()
-    
-    # get_llm() 함수를 mock으로 대체 (캐시 우회)
-    monkeypatch.setattr(llm_service, "get_llm", mock_get_llm)
-    
-    # ChatOllama 클래스 자체를 mock으로 대체 (이중 보호)
-    from langchain_community import chat_models
-    monkeypatch.setattr(chat_models, "ChatOllama", MockChatOllama)
+    # _invoke 함수를 mock으로 대체 (가장 근본적인 해결)
+    monkeypatch.setattr(llm_service, "_invoke", mock_invoke)
     
     # 추가로 generate 함수들도 mock (이중 보호)
     async def mock_generate_itinerary_suggestions(payload: dict[str, Any]) -> list[dict[str, Any]]:
