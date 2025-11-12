@@ -36,8 +36,24 @@ def check_frontend_copy() -> list[str]:
     if not app_js_path.exists():
         return ["frontend/app.js 파일을 찾을 수 없습니다."]
 
-    text = app_js_path.read_text(encoding="utf-8")
-    return [f"app.js에 '{keyword}' 문구가 없습니다." for keyword in required_keywords if keyword not in text]
+    try:
+        text = app_js_path.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        # UTF-8 실패 시 다른 인코딩 시도
+        try:
+            text = app_js_path.read_text(encoding="utf-8-sig")
+        except UnicodeDecodeError:
+            text = app_js_path.read_text(encoding="latin-1")
+    
+    # 공백과 줄바꿈을 무시하고 검색
+    text_normalized = text.replace(" ", "").replace("\n", "").replace("\r", "")
+    problems = []
+    for keyword in required_keywords:
+        keyword_normalized = keyword.replace(" ", "")
+        if keyword_normalized not in text_normalized and keyword not in text:
+            problems.append(f"app.js에 '{keyword}' 문구가 없습니다.")
+    
+    return problems
 
 
 def check_spec_alignment() -> list[str]:

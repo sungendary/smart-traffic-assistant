@@ -47,6 +47,9 @@ jobs:
   # 보안 검사 작업
   security:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read  # 코드 읽기 권한
+      pull-requests: read  # PR 읽기 권한 (gitleaks PR 스캔용)
     steps:
       # 저장소 코드 체크아웃
       - name: Checkout repository
@@ -98,4 +101,6 @@ jobs:
       # GitHub Actions에서 자동으로 실행되며, 민감한 정보 발견 시 실패
       - name: Secrets scan
         uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         continue-on-error: false  # 시크릿 발견 시 워크플로우 실패
