@@ -24,6 +24,10 @@ class Settings(BaseSettings):
     password_hash_scheme: str = Field(default="argon2")
 
     kakao_map_app_key: str = Field(default="")
+    kakao_rest_api_key: str = Field(default="")
+
+    # Weather API (OpenWeatherMap)
+    openweather_api_key: str = Field(default="")
 
     cors_origins: str = Field(default="http://localhost:5173,http://localhost:3000,http://localhost")
 
