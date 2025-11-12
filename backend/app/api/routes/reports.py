@@ -19,5 +19,16 @@ async def get_monthly_report(
     db: AsyncIOMotorDatabase = Depends(get_mongo_db),
 ) -> ReportResponse:
     couple = await get_or_create_couple(db, current_user.id)
-    report = await build_monthly_report(db, str(couple["_id"]), month)
+    report = await build_monthly_report(db, str(couple["_id"]), month, include_summary=False)
+    return ReportResponse(**report)
+
+
+@router.post("/monthly/summary", response_model=ReportResponse)
+async def generate_monthly_summary(
+    month: str = Query(default_factory=lambda: datetime.utcnow().strftime("%Y-%m")),
+    current_user: UserPublic = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_mongo_db),
+) -> ReportResponse:
+    couple = await get_or_create_couple(db, current_user.id)
+    report = await build_monthly_report(db, str(couple["_id"]), month, include_summary=True)
     return ReportResponse(**report)
