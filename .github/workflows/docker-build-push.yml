@@ -45,7 +45,8 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}/dating-app-api
+  # 리포지토리 소유 패키지로 변경 (조직 패키지 권한 문제 해결)
+  IMAGE_NAME: ${{ github.repository_owner }}/dating-app-api
 
 jobs:
   # Docker 이미지 빌드 및 푸시 작업
