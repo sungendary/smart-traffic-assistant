@@ -104,6 +104,42 @@ def mock_llm_service(monkeypatch: pytest.MonkeyPatch) -> None:
     LLM 서비스를 mock하는 fixture
     CI 환경에서는 LLM 서비스가 없으므로 mock 응답을 반환합니다.
     """
+    # get_llm() 함수의 캐시를 클리어하고 mock으로 대체
+    try:
+        llm_service.get_llm.cache_clear()  # type: ignore[attr-defined]
+    except AttributeError:
+        pass  # 캐시가 없을 수도 있음
+    
+    # Mock ChatOllama 클래스
+    class MockChatOllama:
+        """Mock ChatOllama 클래스 - 실제 연결 없이 동작"""
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            pass
+        
+        async def ainvoke(self, *args: Any, **kwargs: Any) -> Any:
+            """Mock 응답 반환"""
+            class MockResponse:
+                content = '[{"title": "테스트 데이트 코스", "description": "테스트용 데이트 코스 설명입니다.", "suggested_places": ["테스트 장소 1", "테스트 장소 2", "테스트 장소 3"], "tips": ["테스트 팁 1", "테스트 팁 2"]}]'
+            return MockResponse()
+        
+        def invoke(self, *args: Any, **kwargs: Any) -> Any:
+            """동기 버전 mock 응답"""
+            class MockResponse:
+                content = '[{"title": "테스트 데이트 코스", "description": "테스트용 데이트 코스 설명입니다.", "suggested_places": ["테스트 장소 1", "테스트 장소 2", "테스트 장소 3"], "tips": ["테스트 팁 1", "테스트 팁 2"]}]'
+            return MockResponse()
+    
+    # get_llm() 함수를 mock으로 대체
+    def mock_get_llm() -> MockChatOllama:
+        return MockChatOllama()
+    
+    # get_llm() 함수를 mock으로 대체 (캐시 우회)
+    monkeypatch.setattr(llm_service, "get_llm", mock_get_llm)
+    
+    # ChatOllama 클래스 자체를 mock으로 대체 (이중 보호)
+    from langchain_community import chat_models
+    monkeypatch.setattr(chat_models, "ChatOllama", MockChatOllama)
+    
+    # 추가로 generate 함수들도 mock (이중 보호)
     async def mock_generate_itinerary_suggestions(payload: dict[str, Any]) -> list[dict[str, Any]]:
         """LLM 호출을 mock하여 테스트용 응답 반환"""
         return [
@@ -119,6 +155,6 @@ def mock_llm_service(monkeypatch: pytest.MonkeyPatch) -> None:
         """LLM 리포트 생성 호출을 mock"""
         return "테스트용 리포트 요약입니다. 이번 달에는 많은 활동을 하셨네요."
 
-    # LLM 서비스 함수들을 mock으로 대체
+    # LLM 서비스 함수들을 mock으로 대체 (이중 보호)
     monkeypatch.setattr(llm_service, "generate_itinerary_suggestions", mock_generate_itinerary_suggestions)
     monkeypatch.setattr(llm_service, "generate_report_summary", mock_generate_report_summary)
