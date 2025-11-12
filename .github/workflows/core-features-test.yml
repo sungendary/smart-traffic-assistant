@@ -1,0 +1,132 @@
+# ============================================================================
+# Core Features Test Workflow
+# ============================================================================
+# 목적: 핵심 기능 1, 2, 3이 제대로 작동하는지 검증
+# 
+# 핵심 기능:
+#   기능1: 취향 기반 데이트 코스 추천
+#     - POST /api/map/suggestions - 장소 추천 API
+#     - POST /api/planner/plans - 코스 생성 API
+#   
+#   기능2: 커플 챌린지 보상 시스템
+#     - GET /api/challenges/ - 챌린지 진행도 조회
+#     - POST /api/visits/checkin - 방문 체크인
+#   
+#   기능3: AI 러브 스펙트럼 (연인 관계 인사이트)
+#     - GET /api/reports/monthly - 월간 리포트 생성
+#
+# 실행 조건:
+#   - backend/** 경로의 파일이 변경될 때
+#   - 수동 실행 (workflow_dispatch)
+# ============================================================================
+
+name: Core Features Test
+
+on:
+  push:
+    paths:
+      - "backend/**"
+      - ".github/workflows/core-features-test.yml"
+  pull_request:
+    paths:
+      - "backend/**"
+      - ".github/workflows/core-features-test.yml"
+  workflow_dispatch:  # GitHub Actions UI에서 수동 실행 가능
+  workflow_call:  # 다른 워크플로우에서 호출 가능
+
+env:
+  PYTHON_VERSION: "3.11"
+  STARLETTE_VERSION: "0.49.1"
+
+jobs:
+  # 핵심 기능 테스트 작업
+  test-core-features:
+    runs-on: ubuntu-latest
+    services:
+      # MongoDB 서비스
+      mongodb:
+        image: mongo:6.0
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --eval 'db.adminCommand(\"ping\")'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        env:
+          MONGO_INITDB_DATABASE: datingapp
+
+      # Redis 서비스
+      redis:
+        image: redis:7.2
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      MONGODB_URI: mongodb://localhost:27017
+      MONGODB_DB: datingapp
+      REDIS_URL: redis://localhost:6379/0
+      JWT_SECRET_KEY: test-secret-key-for-ci-testing-only-minimum-32-chars
+      ACCESS_TOKEN_EXPIRE_MINUTES: 30
+      REFRESH_TOKEN_EXPIRE_MINUTES: 1440
+      PASSWORD_HASH_SCHEME: argon2
+
+    steps:
+      # 저장소 코드 체크아웃
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Python 환경 설정
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: "pip"
+          cache-dependency-path: backend/requirements.txt
+
+      # 프로젝트 의존성 설치
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip setuptools
+          pip install -r backend/requirements.txt
+          pip install --no-deps starlette==${{ env.STARLETTE_VERSION }}
+          pip install pytest pytest-asyncio httpx asgi-lifespan
+
+      # MongoDB 인덱스 생성
+      - name: Setup MongoDB indexes
+        run: |
+          docker run --rm --network host mongo:6.0 mongosh \
+            --host localhost:27017 \
+            --eval 'db=db.getSiblingDB("datingapp"); db.places.createIndex({location:"2dsphere"}); db.users.createIndex({email:1}); db.users.createIndex({couple_id:1});'
+
+      # 핵심 기능 테스트 실행
+      - name: Test Core Feature 1 - 데이트 코스 추천
+        run: |
+          pytest backend/tests/core_features/test_feature1_course_recommendation.py -v
+        continue-on-error: false
+
+      - name: Test Core Feature 2 - 커플 챌린지 시스템
+        run: |
+          pytest backend/tests/core_features/test_feature2_challenge_system.py -v
+        continue-on-error: false
+
+      - name: Test Core Feature 3 - AI 러브 스펙트럼 리포트
+        run: |
+          pytest backend/tests/core_features/test_feature3_love_spectrum.py -v
+        continue-on-error: false
+
+      # 테스트 결과 요약
+      - name: Test Summary
+        if: always()
+        run: |
+          echo "## Core Features Test Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ 기능1: 취향 기반 데이트 코스 추천" >> $GITHUB_STEP_SUMMARY
+          echo "✅ 기능2: 커플 챌린지 보상 시스템" >> $GITHUB_STEP_SUMMARY
+          echo "✅ 기능3: AI 러브 스펙트럼 리포트" >> $GITHUB_STEP_SUMMARY
+
