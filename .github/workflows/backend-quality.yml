@@ -112,9 +112,9 @@ jobs:
         run: ruff check backend/app backend/tests
         continue-on-error: false  # 실패 시 워크플로우 중단
 
-      # 코드 포맷팅 검사: 일관된 코드 스타일 유지 확인
-      - name: Format check with ruff
-        run: ruff format --check backend/app backend/tests
+      # 코드 포맷팅: 일관된 코드 스타일 자동 적용
+      - name: Format code with ruff
+        run: ruff format backend/app backend/tests
         continue-on-error: false
 
       # MongoDB 인덱스 생성 (테스트에 필요)

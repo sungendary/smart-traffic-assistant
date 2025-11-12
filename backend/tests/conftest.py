@@ -13,6 +13,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 from backend.app.db import init  # noqa: E402
 from backend.app.db.mongo import MongoConnectionManager  # noqa: E402
 from backend.app.db.redis import RedisConnectionManager  # noqa: E402
+from backend.app.services import llm as llm_service  # noqa: E402
 
 
 class _DummyCollection:
@@ -95,3 +96,29 @@ def stub_infrastructure(monkeypatch: pytest.MonkeyPatch) -> None:
         classmethod(lambda cls: _noop_close_redis(cls)),
     )
     monkeypatch.setattr(init, "ensure_indexes", _noop_ensure_indexes)
+
+
+@pytest.fixture(autouse=True)
+def mock_llm_service(monkeypatch: pytest.MonkeyPatch) -> None:
+    """
+    LLM 서비스를 mock하는 fixture
+    CI 환경에서는 LLM 서비스가 없으므로 mock 응답을 반환합니다.
+    """
+    async def mock_generate_itinerary_suggestions(payload: dict[str, Any]) -> list[dict[str, Any]]:
+        """LLM 호출을 mock하여 테스트용 응답 반환"""
+        return [
+            {
+                "title": "테스트 데이트 코스",
+                "description": "테스트용 데이트 코스 설명입니다.",
+                "suggested_places": ["테스트 장소 1", "테스트 장소 2", "테스트 장소 3"],
+                "tips": ["테스트 팁 1", "테스트 팁 2"],
+            }
+        ]
+
+    async def mock_generate_report_summary(payload: dict[str, Any]) -> str:
+        """LLM 리포트 생성 호출을 mock"""
+        return "테스트용 리포트 요약입니다. 이번 달에는 많은 활동을 하셨네요."
+
+    # LLM 서비스 함수들을 mock으로 대체
+    monkeypatch.setattr(llm_service, "generate_itinerary_suggestions", mock_generate_itinerary_suggestions)
+    monkeypatch.setattr(llm_service, "generate_report_summary", mock_generate_report_summary)

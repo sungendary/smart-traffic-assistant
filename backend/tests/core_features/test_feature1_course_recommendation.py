@@ -11,6 +11,7 @@ from backend.app.main import app
 
 
 async def _request(method: str, url: str, **kwargs) -> httpx.Response:
+    """API 요청 헬퍼 함수 - LifespanManager를 올바르게 사용"""
     async with LifespanManager(app):
         async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://testserver") as client:
             response = await client.request(method, url, **kwargs)
