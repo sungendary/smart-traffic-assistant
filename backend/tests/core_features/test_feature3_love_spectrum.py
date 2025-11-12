@@ -2,7 +2,6 @@
 기능3: AI 러브 스펙트럼 (연인 관계 인사이트) 테스트
 - GET /api/reports/monthly - 월간 리포트 생성
 """
-import asyncio
 import httpx
 import pytest
 from asgi_lifespan import LifespanManager

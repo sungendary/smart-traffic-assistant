@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 from typing import Any
@@ -42,6 +43,25 @@ class _DummyRedisClient:
 
 @pytest.fixture(autouse=True)
 def stub_infrastructure(monkeypatch: pytest.MonkeyPatch) -> None:
+    """
+    DB 연결을 stub으로 대체하는 fixture
+    
+    주의: CI 환경이나 실제 DB를 사용하는 테스트에서는 이 fixture를 비활성화해야 합니다.
+    환경 변수 MONGODB_URI와 REDIS_URL이 설정되어 있으면 실제 DB를 사용합니다.
+    """
+    # CI 환경이나 실제 DB를 사용하는 경우 stub을 사용하지 않음
+    mongodb_uri = os.getenv("MONGODB_URI", "").strip()
+    redis_url = os.getenv("REDIS_URL", "").strip()
+    ci_env = os.getenv("CI", "").strip().lower() in ("true", "1", "yes")
+    
+    # 실제 DB 연결 정보가 있거나 CI 환경이면 stub을 사용하지 않음
+    if (mongodb_uri and redis_url) or ci_env:
+        # CI 환경에서는 실제 DB를 사용
+        print(f"[conftest] 실제 DB 사용: MONGODB_URI={mongodb_uri[:20]}..., REDIS_URL={redis_url[:20]}..., CI={ci_env}")
+        return
+    
+    # 로컬 개발 환경에서는 stub 사용
+    print("[conftest] Stub DB 사용 (로컬 개발 환경)")
     dummy_mongo_client = _DummyMongoClient()
     dummy_redis_client = _DummyRedisClient()
 

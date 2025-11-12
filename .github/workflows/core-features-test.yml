@@ -68,6 +68,7 @@ jobs:
           --health-retries 5
 
     env:
+      CI: "true"  # CI 환경임을 명시
       MONGODB_URI: mongodb://localhost:27017
       MONGODB_DB: datingapp
       REDIS_URL: redis://localhost:6379/0

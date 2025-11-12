@@ -2,7 +2,6 @@
 전체 API 엔드포인트 통합 테스트
 백엔드와 프론트엔드 API가 전체적으로 잘 응답하는지 검증
 """
-import asyncio
 import httpx
 import pytest
 from asgi_lifespan import LifespanManager
@@ -132,7 +131,6 @@ async def test_planner_endpoints():
     assert create_response.status_code == 200
     plan_data = create_response.json()
     assert "id" in plan_data or "_id" in plan_data
-    plan_id = plan_data.get("id") or plan_data.get("_id")
 
 
 @pytest.mark.asyncio

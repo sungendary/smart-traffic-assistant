@@ -2,7 +2,6 @@
 전체 인증 플로우 통합 테스트
 회원가입 → 로그인 → 토큰 사용 → 로그아웃
 """
-import asyncio
 import httpx
 import pytest
 from asgi_lifespan import LifespanManager

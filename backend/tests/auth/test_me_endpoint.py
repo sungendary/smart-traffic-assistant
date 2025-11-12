@@ -1,7 +1,6 @@
 """
 인증된 사용자 정보 조회 테스트
 """
-import asyncio
 import httpx
 import pytest
 from asgi_lifespan import LifespanManager

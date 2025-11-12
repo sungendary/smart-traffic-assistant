@@ -3,7 +3,6 @@
 - GET /api/challenges/ - 챌린지 진행도 조회
 - POST /api/visits/checkin - 방문 체크인
 """
-import asyncio
 import httpx
 import pytest
 from asgi_lifespan import LifespanManager

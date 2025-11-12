@@ -3,7 +3,6 @@
 - POST /api/map/suggestions - 장소 추천 API
 - POST /api/planner/plans - 코스 생성 API
 """
-import asyncio
 import httpx
 import pytest
 from asgi_lifespan import LifespanManager

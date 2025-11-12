@@ -1,7 +1,6 @@
 """
 JWT 토큰 검증 테스트
 """
-import asyncio
 import httpx
 import pytest
 from asgi_lifespan import LifespanManager
