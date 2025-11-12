@@ -45,12 +45,19 @@ def check_frontend_copy() -> list[str]:
         except UnicodeDecodeError:
             text = app_js_path.read_text(encoding="latin-1")
     
-    # 공백과 줄바꿈을 무시하고 검색
-    text_normalized = text.replace(" ", "").replace("\n", "").replace("\r", "")
+    # 템플릿 리터럴 내부의 공백/줄바꿈을 고려하여 검색
+    # 원본 텍스트와 정규화된 텍스트 모두에서 검색
     problems = []
     for keyword in required_keywords:
-        keyword_normalized = keyword.replace(" ", "")
-        if keyword_normalized not in text_normalized and keyword not in text:
+        # 원본 텍스트에서 직접 검색 (템플릿 리터럴 내부 포함)
+        if keyword in text:
+            continue
+        
+        # 공백과 줄바꿈을 제거한 정규화된 텍스트에서도 검색
+        keyword_normalized = keyword.replace(" ", "").replace("\n", "").replace("\r", "")
+        text_normalized = text.replace(" ", "").replace("\n", "").replace("\r", "").replace("\t", "")
+        
+        if keyword_normalized not in text_normalized:
             problems.append(f"app.js에 '{keyword}' 문구가 없습니다.")
     
     return problems
