@@ -1,0 +1,112 @@
+# ============================================================================
+# Security Baseline Workflow
+# ============================================================================
+# 목적: 보안 취약점을 검사하고 보안 기준을 유지하는 워크플로우
+# 
+# 주요 기능:
+#   1. Python 의존성 보안 감사 (pip-audit) - 알려진 취약점 검사
+#   2. 정적 보안 분석 (bandit) - 코드 레벨 보안 이슈 검사
+#   3. 시크릿 스캔 (gitleaks) - 코드에 하드코딩된 비밀번호/API 키 탐지
+#
+# 실행 조건:
+#   - 매주 월요일 오전 2시 자동 실행 (스케줄)
+#   - 의존성 파일(backend/requirements.txt)이 변경될 때
+#   - 백엔드 코드(backend/app/**)가 변경될 때
+#   - 수동 실행 (workflow_dispatch)
+#
+# 보안 리포트:
+#   - Bandit 리포트는 JSON 형식으로 저장되어 30일간 보관
+#   - GitHub Actions 아티팩트에서 다운로드 가능
+# ============================================================================
+
+name: Security Baseline
+
+on:
+  # 매주 월요일 오전 2시(UTC)에 자동 실행
+  schedule:
+    - cron: "0 2 * * 1"
+  push:
+    paths:
+      - "backend/requirements.txt"
+      - "backend/app/**"
+      - ".github/workflows/security-baseline.yml"
+  pull_request:
+    paths:
+      - "backend/requirements.txt"
+      - "backend/app/**"
+      - ".github/workflows/security-baseline.yml"
+  workflow_dispatch:  # GitHub Actions UI에서 수동 실행 가능
+  workflow_call:  # 다른 워크플로우에서 호출 가능
+
+# 환경 변수 설정
+env:
+  PYTHON_VERSION: "3.11"
+  STARLETTE_VERSION: "0.49.1"
+
+jobs:
+  # 보안 검사 작업
+  security:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read  # 코드 읽기 권한
+      pull-requests: read  # PR 읽기 권한 (gitleaks PR 스캔용)
+    steps:
+      # 저장소 코드 체크아웃
+      # fetch-depth: 0은 전체 Git 히스토리를 가져와서 gitleaks가 PR 커밋 범위를 스캔할 수 있게 함
+      # PR 이벤트의 경우 base와 head 커밋을 모두 가져오기 위해 필요
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # 전체 히스토리 가져오기 (gitleaks PR 스캔에 필요)
+          # PR 이벤트에서 base 브랜치의 커밋도 가져오기 위해 추가 설정
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      # Python 환경 설정 및 pip 캐시 활성화
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: "pip"  # pip 패키지 캐싱으로 설치 시간 단축
+          cache-dependency-path: backend/requirements.txt
+
+      # 보안 도구 및 프로젝트 의존성 설치
+      - name: Install security tooling and dependencies
+        run: |
+          python -m pip install --upgrade pip setuptools
+          pip install pip-audit bandit  # 보안 감사 도구
+          pip install -r backend/requirements.txt
+          pip install --no-deps starlette==${{ env.STARLETTE_VERSION }}  # 보안 패치 적용
+
+      # Python 의존성 보안 감사
+      # pip-audit: requirements.txt의 패키지들이 알려진 취약점을 포함하는지 검사
+      # --desc: 취약점에 대한 상세 설명 표시
+      - name: Audit Python dependencies
+        run: pip-audit --desc
+        continue-on-error: false  # 취약점 발견 시 워크플로우 실패
+
+      # 정적 보안 분석
+      # bandit: Python 코드의 보안 이슈를 스캔 (예: 하드코딩된 비밀번호, SQL 인젝션 등)
+      # -ll: 낮은/낮은 수준의 이슈만 보고 (필요시 조정 가능)
+      # -f json: JSON 형식으로 리포트 생성
+      # || true: 리포트 생성 실패해도 워크플로우 계속 진행
+      - name: Static security scan
+        run: bandit -r backend/app -ll -f json -o bandit-report.json || true
+        continue-on-error: true  # 리포트 생성 실패해도 계속 진행
+
+      # Bandit 보안 리포트를 아티팩트로 업로드
+      - name: Upload Bandit report
+        uses: actions/upload-artifact@v4
+        if: always()  # 이전 단계 실패 여부와 관계없이 실행
+        with:
+          name: bandit-security-report
+          path: bandit-report.json
+          retention-days: 30  # 30일간 보관 (보안 리포트는 오래 보관)
+
+      # 시크릿 스캔
+      # gitleaks: Git 히스토리와 코드에서 하드코딩된 비밀번호, API 키, 토큰 등을 탐지
+      # GitHub Actions에서 자동으로 실행되며, 민감한 정보 발견 시 실패
+      - name: Secrets scan
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: false  # 시크릿 발견 시 워크플로우 실패

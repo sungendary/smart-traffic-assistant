@@ -1,0 +1,125 @@
+# ============================================================================
+# Docker Build & Push Workflow
+# ============================================================================
+# 목적: Docker 이미지를 빌드하고 GitHub Container Registry(GHCR)에 푸시
+# 
+# 주요 기능:
+#   1. Docker 이미지 빌드 (멀티 스테이지 빌드 지원)
+#   2. 이미지 태깅 (latest, git SHA, 브랜치명)
+#   3. GHCR에 이미지 푸시
+#   4. 이미지 취약점 스캔 (트리비)
+#
+# 실행 조건:
+#   - main/develop_branch 브랜치에 push될 때
+#   - Pull Request가 열릴 때 (빌드만 수행, 푸시는 안 함)
+#   - 수동 실행 (workflow_dispatch)
+#
+# 이미지 태그 전략:
+#   - main 브랜치: ghcr.io/{owner}/{repo}:latest, :{sha}
+#   - develop_branch 브랜치: ghcr.io/{owner}/{repo}:develop_branch, :{sha}
+#   - PR: ghcr.io/{owner}/{repo}:pr-{number}
+# ============================================================================
+
+name: Docker Build & Push
+
+on:
+  push:
+    branches:
+      - main
+      - develop_branch
+    paths:
+      - "backend/**"
+      - "frontend/**"
+      - "Dockerfile"
+      - ".github/workflows/docker-build-push.yml"
+  pull_request:
+    branches:
+      - main
+      - develop_branch
+    paths:
+      - "backend/**"
+      - "frontend/**"
+      - "Dockerfile"
+      - ".github/workflows/docker-build-push.yml"
+  workflow_dispatch:  # GitHub Actions UI에서 수동 실행 가능
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}/dating-app-api
+
+jobs:
+  # Docker 이미지 빌드 및 푸시 작업
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write  # GHCR에 푸시하기 위한 권한
+
+    steps:
+      # 저장소 코드 체크아웃
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Docker Buildx 설정 (멀티 플랫폼 빌드 지원)
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # GHCR 로그인
+      - name: Log in to GitHub Container Registry
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # 이미지 메타데이터 추출
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,prefix={{branch}}-,enable=${{ github.event_name != 'pull_request' }}
+            type=sha,enable=${{ github.event_name == 'pull_request' }}
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      # Docker 이미지 빌드 및 푸시
+      - name: Build and push Docker image
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha  # GitHub Actions 캐시 사용
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64  # 필요시 linux/arm64 추가 가능
+
+      # 이미지 취약점 스캔 (Trivy) - PR이 아닐 때만, 이미지가 푸시된 경우에만
+      - name: Run Trivy vulnerability scanner
+        if: github.event_name != 'pull_request' && steps.build.outcome == 'success'
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'
+
+      # Trivy 스캔 결과 업로드
+      - name: Upload Trivy results to GitHub Security
+        if: github.event_name != 'pull_request' && always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+      # 빌드된 이미지 정보 출력
+      - name: Image digest
+        if: github.event_name != 'pull_request'
+        run: echo "Image pushed with digest ${{ steps.build.outputs.digest }}"
+
