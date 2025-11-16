@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 
 from .routes import (
+    admin,
     auth,
     bookmarks,
     challenges,
@@ -25,3 +26,4 @@ api_router.include_router(visits.router, prefix="/visits", tags=["visits"])
 api_router.include_router(challenges.router, prefix="/challenges", tags=["challenges"])
 api_router.include_router(reports.router, prefix="/reports", tags=["reports"])
 api_router.include_router(couples.router, prefix="/couples", tags=["couples"])
+api_router.include_router(admin.router, prefix="/admin", tags=["admin"])
