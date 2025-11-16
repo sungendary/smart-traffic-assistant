@@ -30,6 +30,8 @@ class Settings(BaseSettings):
     llm_base_url: str = Field(default="http://llm:11434")
     llm_model: str = Field(default="qwen2.5:0.5b")
     llm_temperature: float = Field(default=0.2)
+    
+    admin_email: str = Field(default="")  # 관리자 이메일 (관리자 API 접근용)
 
     @property
     def cors_origins_list(self) -> list[str]:

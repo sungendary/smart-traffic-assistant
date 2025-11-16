@@ -58,6 +58,8 @@ async def create_couple_for_user(db: AsyncIOMotorDatabase, user_id: str) -> dict
                 "push": False,
             }
         },
+        "points": 0,
+        "badges": [],
     }
     result = await db[COUPLES_COL].insert_one(couple_doc)
     couple_doc["_id"] = result.inserted_id
