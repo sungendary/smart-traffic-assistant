@@ -1,11 +1,13 @@
 from .auth import LoginResponse, LogoutResponse, RefreshResponse, SignupResponse
 from .bookmarks import BookmarkCreate, BookmarkOut
-from .challenges import ChallengeProgress
+from .challenge_places import ChallengePlaceCreate, ChallengePlaceOut, ChallengePlaceUpdate
+from .challenges import ChallengeProgress, LocationVerifyRequest, LocationVerifyResponse
 from .couples import CouplePreferences, CoupleSummary, InviteResponse, JoinRequest, PreferenceUpdate
 from .map import MapSuggestionRequest, MapSuggestionResponse
 from .planner import PlanCreate, PlanOut, PlanStop, PlanUpdate
 from .place import Place
 from .reports import ReportResponse
+from .rewards import ChallengeStatus
 from .user import UserCreate, UserLogin, UserPublic
 from .visits import VisitCreate, VisitOut
 
@@ -16,7 +18,13 @@ __all__ = [
     "SignupResponse",
     "BookmarkCreate",
     "BookmarkOut",
+    "ChallengePlaceCreate",
+    "ChallengePlaceOut",
+    "ChallengePlaceUpdate",
     "ChallengeProgress",
+    "ChallengeStatus",
+    "LocationVerifyRequest",
+    "LocationVerifyResponse",
     "CouplePreferences",
     "CoupleSummary",
     "InviteResponse",

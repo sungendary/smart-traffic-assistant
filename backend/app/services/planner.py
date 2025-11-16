@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 
 from bson import ObjectId
 from fastapi import HTTPException, status
@@ -19,12 +19,27 @@ def _normalize_plan(doc: dict) -> dict:
     return doc
 
 
+def _ensure_datetime(value: datetime | date | None) -> datetime | None:
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value
+    if isinstance(value, date):
+        return datetime.combine(value, datetime.min.time())
+    if isinstance(value, str):
+        try:
+            return datetime.fromisoformat(value)
+        except ValueError as exc:
+            raise TypeError(f"Invalid date string: {value!r}") from exc
+    raise TypeError(f"Unsupported date value: {type(value)!r}")
+
+
 async def create_plan(db: AsyncIOMotorDatabase, couple_id: str, payload: dict) -> dict:
     now = datetime.utcnow()
     plan_doc = {
         "couple_id": ObjectId(couple_id),
         "title": payload.get("title", ""),
-        "date": payload.get("date"),
+        "date": _ensure_datetime(payload.get("date")),
         "emotion_goal": payload.get("emotion_goal"),
         "budget_range": payload.get("budget_range"),
         "stops": payload.get("stops", []),
@@ -61,6 +76,8 @@ async def update_plan(db: AsyncIOMotorDatabase, plan_id: str, couple_id: str, pa
         obj_id = ObjectId(plan_id)
     except Exception as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="잘못된 플랜 ID") from exc
+    if "date" in payload:
+        payload["date"] = _ensure_datetime(payload["date"])
     payload["updated_at"] = datetime.utcnow()
     await db[PLANS_COL].update_one({"_id": obj_id, "couple_id": ObjectId(couple_id)}, {"$set": payload})
     return await get_plan(db, plan_id, couple_id)
