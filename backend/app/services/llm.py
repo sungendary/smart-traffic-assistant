@@ -17,15 +17,26 @@ ITINERARY_PROMPT = ChatPromptTemplate.from_template(
     - 감정 상태: {emotion}
     - 선호 태그: {preferences}
     - 지역 설명: {location}
+<<<<<<< Updated upstream
+    - 예산 범위: {budget}
+    - 날짜 및 날씨: {date} ({weather})
+=======
+    - 현재 날씨: {weather}
+    - 예산 범위: {budget}
+>>>>>>> Stashed changes
     - 추가 정보: {additional_context}
+
+    날씨와 예산을 고려하여 실용적이고 현실적인 추천을 제공하세요.
+    예를 들어, 비가 오면 실내 활동을 추천하고, 예산이 낮으면 무료/저렴한 장소를 우선 제안하세요.
 
     각 제안은 JSON 객체로 작성하세요. 형식은 아래와 같습니다.
     [
       {{
-        "title": "20자 이내 제목",
-        "description": "두 문장 요약",
+        "title": "20자 이내 제목 (예산/날씨 고려)",
+        "description": "두 문장 요약 (예산과 날씨가 어떻게 반영되었는지 언급)",
         "suggested_places": ["장소명 - 추천 이유", "...", "..."],
-        "tips": ["팁1", "팁2"]
+        "tips": ["팁1", "팁2"],
+        "estimated_total_cost": "예상 총 비용 (숫자만)"
       }}
     ]
     반드시 JSON 배열만 출력하세요.
@@ -97,6 +108,7 @@ async def generate_itinerary_suggestions(payload: dict[str, Any]) -> list[dict[s
                     "description": str(item.get("description", "")),
                     "suggested_places": [str(p) for p in item.get("suggested_places", [])],
                     "tips": [str(t) for t in item.get("tips", [])],
+                    "estimated_total_cost": item.get("estimated_total_cost", 0),
                 }
             )
     return clean
