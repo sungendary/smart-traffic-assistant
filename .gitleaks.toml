@@ -1,0 +1,13 @@
+# Gitleaks configuration
+# This file configures gitleaks to exclude certain files and paths
+
+[extend]
+# Use default rules
+useDefault = true
+
+[allowlist]
+description = "Allowlist for Kubernetes secret template files"
+paths = [
+    '''k8s/app-secrets\.yaml''',
+]
+
