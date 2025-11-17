@@ -152,9 +152,9 @@ jobs:
           pip install --no-deps starlette==${{ env.STARLETTE_VERSION }}  # 보안 패치 적용
           pip install ruff pytest pytest-cov pytest-asyncio httpx asgi-lifespan motor redis  # 린터, 테스트, HTTP 클라이언트, DB 드라이버
 
-      # 코드 린팅: 코드 스타일 및 잠재적 오류 검사
+      # 코드 린팅: 코드 스타일 및 잠재적 오류 검사 (자동 수정 가능한 항목은 자동으로 수정)
       - name: Lint with ruff
-        run: ruff check backend/app backend/tests
+        run: ruff check --fix backend/app backend/tests
         continue-on-error: false  # 실패 시 워크플로우 중단
 
       # 코드 포맷팅: 일관된 코드 스타일 자동 적용
