@@ -1,4 +1,0 @@
-# Kubernetes secrets template files
-# These files contain placeholder values, not actual secrets
-k8s/app-secrets.yaml
-
