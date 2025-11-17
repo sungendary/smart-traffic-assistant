@@ -1,3 +1,5 @@
+from typing import Optional
+
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from motor.motor_asyncio import AsyncIOMotorDatabase
@@ -10,7 +12,7 @@ from .security import TokenError, decode_token
 http_bearer = HTTPBearer(auto_error=False)
 
 
-async def get_current_token(credentials: HTTPAuthorizationCredentials | None = Depends(http_bearer)) -> dict:
+async def get_current_token(credentials: Optional[HTTPAuthorizationCredentials] = Depends(http_bearer)) -> dict:
     if credentials is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="인증 정보가 필요합니다.")
     payload = decode_token(credentials.credentials)

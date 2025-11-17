@@ -1,3 +1,5 @@
+from typing import Optional
+
 from fastapi import APIRouter, Cookie, Depends, Response, status
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from redis.asyncio import Redis
@@ -58,7 +60,7 @@ async def login(
 @router.post("/refresh", response_model=RefreshResponse)
 async def refresh(
     response: Response,
-    refresh_token: str | None = Cookie(default=None, alias="refresh_token"),
+    refresh_token: Optional[str] = Cookie(default=None, alias="refresh_token"),
     redis: Redis = Depends(get_redis),
 ) -> RefreshResponse:
     if not refresh_token:
@@ -90,7 +92,7 @@ async def refresh(
 @router.post("/logout")
 async def logout(
     response: Response,
-    refresh_token: str | None = Cookie(default=None, alias="refresh_token"),
+    refresh_token: Optional[str] = Cookie(default=None, alias="refresh_token"),
     redis: Redis = Depends(get_redis),
 ) -> dict:
     if refresh_token:
