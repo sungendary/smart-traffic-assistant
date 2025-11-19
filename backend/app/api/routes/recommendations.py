@@ -9,6 +9,7 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 from ...core.auth import get_current_user
 from ...dependencies import get_mongo_db, get_redis_client
 from ...schemas.user import UserPublic
+from ...services.geocoding import get_coordinates_from_location
 from ...services.llm import generate_itinerary_suggestions
 from ...services.recommendations import (
     filter_by_budget,
@@ -22,12 +23,12 @@ router = APIRouter()
 
 @router.post("/recommend")
 async def get_smart_recommendations(
-    lat: float = Query(..., description="위도"),
-    lon: float = Query(..., description="경도"),
+    lat: float = Query(default=37.5665, description="위도 (location_desc가 있으면 무시됨)"),
+    lon: float = Query(default=126.9780, description="경도 (location_desc가 있으면 무시됨)"),
     preferences: list[str] = Query(default=[], description="취향 태그 (예: romantic, food, outdoor)"),
     budget_range: str = Query(default="medium", description="예산 범위: free/low/medium/high/premium"),
     emotion: str = Query(default="", description="감정 상태 (선택)"),
-    location_desc: str = Query(default="서울", description="지역 설명"),
+    location_desc: str = Query(default="", description="🔴 중요: 지역 설명 (예: '광교역', '강남역', '수원') - 입력 필수!"),
     current_user: UserPublic = Depends(get_current_user),
     db: AsyncIOMotorDatabase = Depends(get_mongo_db),
     redis=Depends(get_redis_client),
@@ -35,12 +36,33 @@ async def get_smart_recommendations(
     """
     취향, 예산, 날씨를 고려한 스마트 데이트 코스 추천
     
+    🔴 반드시 location_desc 파라미터에 지역명을 입력하세요!
+    
+    - location_desc 기반 좌표 자동 변환
     - 현재 위치의 날씨 정보 조회
     - 날씨에 적합한 활동 제안
     - 예산 범위 내 장소 필터링
     - 취향 기반 개인화 추천
     - AI 기반 코스 제안
     """
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    # 지역명이 입력된 경우, 지역명을 좌표로 변환
+    original_lat, original_lon = lat, lon
+    if location_desc:
+        logger.info(f"📍 지역명 변환 시작: '{location_desc}'")
+        lat, lon = await get_coordinates_from_location(location_desc, fallback_lat=lat, fallback_lon=lon)
+        logger.info(f"📍 변환 결과: {location_desc} → ({lat}, {lon})")
+        
+        # 변환 전후 좌표 비교로 실제 변환 확인
+        if (lat, lon) != (original_lat, original_lon):
+            logger.info(f"✅ 지역명 변환 성공: ({original_lat}, {original_lon}) → ({lat}, {lon})")
+        else:
+            logger.warning(f"⚠️ 지역명 변환 실패 또는 기본값 사용: {location_desc}")
+    else:
+        logger.warning("⚠️ location_desc 파라미터가 비어있음 - 기본 위치(서울) 사용")
+    
     # 1. 날씨 정보 조회
     weather_info = await get_weather_info(lat, lon, redis)
     weather_suggestions = get_weather_based_suggestions(weather_info["condition"])
@@ -77,7 +99,7 @@ async def get_smart_recommendations(
     llm_payload = {
         "emotion": emotion or "평온한",
         "preferences": ", ".join(preferences) if preferences else "다양한 경험",
-        "location": location_desc,
+        "location": location_desc or f"위도 {lat:.2f}, 경도 {lon:.2f}",
         "weather": weather_description,
         "budget": budget_label,
         "additional_context": f"추천 장소: {', '.join([p.get('place_name', '') for p in top_places[:5]])}"

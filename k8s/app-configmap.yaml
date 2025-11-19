@@ -14,3 +14,4 @@ data:
   LLM_BASE_URL: http://llm:11434
   LLM_MODEL: llama3
   LLM_TEMPERATURE: "0.3"
+  OPENWEATHER_API_KEY: your_openweather_api_key
