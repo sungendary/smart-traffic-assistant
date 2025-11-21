@@ -10,59 +10,7 @@ from google import genai
 
 from ..core.config import settings
 
-<<<<<<< Updated upstream
-ITINERARY_PROMPT = ChatPromptTemplate.from_template(
-    """
-    당신은 연인을 위한 프리미엄 데이트 플래너입니다. 아래 정보를 참고하여 한국어로 세 가지 제안을 만듭니다.
-    - 감정 상태: {emotion}
-    - 선호 태그: {preferences}
-    - 지역 설명: {location}
-<<<<<<< Updated upstream
-    - 예산 범위: {budget}
-    - 날짜 및 날씨: {date} ({weather})
-=======
-    - 현재 날씨: {weather}
-    - 예산 범위: {budget}
->>>>>>> Stashed changes
-    - 추가 정보: {additional_context}
 
-    날씨와 예산을 고려하여 실용적이고 현실적인 추천을 제공하세요.
-    예를 들어, 비가 오면 실내 활동을 추천하고, 예산이 낮으면 무료/저렴한 장소를 우선 제안하세요.
-
-    각 제안은 JSON 객체로 작성하세요. 형식은 아래와 같습니다.
-    [
-      {{
-        "title": "20자 이내 제목 (예산/날씨 고려)",
-        "description": "두 문장 요약 (예산과 날씨가 어떻게 반영되었는지 언급)",
-        "suggested_places": ["장소명 - 추천 이유", "...", "..."],
-        "tips": ["팁1", "팁2"],
-        "estimated_total_cost": "예상 총 비용 (숫자만)"
-      }}
-    ]
-    반드시 JSON 배열만 출력하세요.
-    """
-)
-
-REPORT_PROMPT = ChatPromptTemplate.from_template(
-    """
-    당신은 귀여운 어린이 커플 매니저 "토토"입니다. 아래 데이터를 보고 4~5문장으로 한국어 리포트를 작성하세요.
-    - 월: {month}
-    - 방문 횟수: {visit_count}
-    - 즐겨 찾은 태그 Top3: {top_tags}
-    - 감정 분포: {emotion_stats}
-    - 챌린지 진행도: {challenge_progress}
-    - 커플 선호 태그: {couple_preference_tags}
-    - 커플 감정 목표: {couple_emotion_goals}
-    - 플래너 감정 목표: {plan_emotion_goals}
-    - 추가 메모: {notes}
-
-    지켜야 할 규칙:
-    1. 유치원생이 들려주는 듯한 상냥하고 해맑은 톤을 유지하고, 이모지나 의성어를 1~2개 섞어도 좋습니다.
-    2. 커플이 좋아하는 태그/감정 목표/플래너 감정 목표를 꼭 한 번씩 언급하고, 통계 수치는 자연스럽게 녹여 주세요.
-    3. 어려운 전문 용어는 쓰지 말고, 마지막 문장은 두 사람이 다음 데이트를 응원하는 짧은 감탄사로 마무리하세요.
-    """
-)
-=======
 def _format_itinerary_prompt(emotion: str, preferences: str, location: str, additional_context: str) -> str:
     return f"""
 당신은 연인을 위한 프리미엄 데이트 플래너입니다. 아래 정보를 참고하여 한국어로 세 가지 제안을 만듭니다.
@@ -84,19 +32,28 @@ def _format_itinerary_prompt(emotion: str, preferences: str, location: str, addi
 """
 
 
-def _format_report_prompt(month: str, visit_count: int, top_tags: str, emotion_stats: str, challenge_progress: str, notes: str) -> str:
+def _format_report_prompt(month: str, visit_count: int, top_tags: str, emotion_stats: str, challenge_progress: str, couple_preference_tags: list[str] = None, couple_emotion_goals: list[str] = None, plan_emotion_goals: list[str] = None, notes: str = "") -> str:
+    pref_tags = ", ".join(couple_preference_tags or [])
+    pref_emotions = ", ".join(couple_emotion_goals or [])
+    plan_emotions = ", ".join(plan_emotion_goals or [])
+    
     return f"""
-당신은 커플 관계 인사이트 분석가입니다. 다음 데이터를 참고하여 4~5문장으로 한국어 요약을 작성하세요.
+당신은 귀여운 어린이 커플 매니저 "토토"입니다. 아래 데이터를 보고 4~5문장으로 한국어 리포트를 작성하세요.
 - 월: {month}
 - 방문 횟수: {visit_count}
 - 즐겨 찾은 태그 Top3: {top_tags}
 - 감정 분포: {emotion_stats}
 - 챌린지 진행도: {challenge_progress}
+- 커플 선호 태그: {pref_tags or "없음"}
+- 커플 감정 목표: {pref_emotions or "없음"}
+- 플래너 감정 목표: {plan_emotions or "없음"}
 - 추가 메모: {notes}
 
-항목 번호 없이 자연스러운 문단으로 작성하고, 긍정적인 제안 1가지를 마지막에 포함하세요.
+지켜야 할 규칙:
+1. 유치원생이 들려주는 듯한 상냥하고 해맑은 톤을 유지하고, 이모지나 의성어를 1~2개 섞어도 좋습니다.
+2. 커플이 좋아하는 태그/감정 목표/플래너 감정 목표를 꼭 한 번씩 언급하고, 통계 수치는 자연스럽게 녹여 주세요.
+3. 어려운 전문 용어는 쓰지 말고, 마지막 문장은 두 사람이 다음 데이트를 응원하는 짧은 감탄사로 마무리하세요.
 """
->>>>>>> Stashed changes
 
 
 @lru_cache
@@ -181,11 +138,17 @@ async def generate_itinerary_suggestions(payload: dict[str, Any]) -> list[dict[s
 async def generate_report_summary(payload: dict[str, Any]) -> str:
     month = payload.get("month", "")
     visit_count = payload.get("visit_count", 0)
-    top_tags = payload.get("top_tags", "")
-    emotion_stats = payload.get("emotion_stats", "")
-    challenge_progress = payload.get("challenge_progress", "")
+    top_tags = ", ".join(payload.get("top_tags", []))
+    emotion_stats = str(payload.get("emotion_stats", {}))
+    challenge_progress = str(payload.get("challenge_progress", {}))
+    couple_preference_tags = payload.get("couple_preference_tags", [])
+    couple_emotion_goals = payload.get("couple_emotion_goals", [])
+    plan_emotion_goals = payload.get("plan_emotion_goals", [])
     notes = payload.get("notes", "")
     
-    prompt = _format_report_prompt(month, visit_count, top_tags, emotion_stats, challenge_progress, notes)
+    prompt = _format_report_prompt(
+        month, visit_count, top_tags, emotion_stats, challenge_progress,
+        couple_preference_tags, couple_emotion_goals, plan_emotion_goals, notes
+    )
     summary = await _invoke_gemini(prompt)
     return summary.strip()

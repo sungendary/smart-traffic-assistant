@@ -39,6 +39,7 @@ on:
       - "backend/app/api/routes/config.py"
       - "backend/app/api/routes/health.py"
       - "backend/app/api/routes/reports.py"
+      - "backend/app/api/routes/recommendations.py"
       - "backend/app/core/config.py"
       - "backend/app/dependencies.py"
       - "backend/app/main.py"
@@ -48,6 +49,8 @@ on:
       - "backend/app/services/llm.py"
       - "backend/app/services/places.py"
       - "backend/app/services/reports.py"
+      - "backend/app/services/recommendations.py"
+      - "backend/app/services/weather.py"
       - "backend/app/services/visits.py"
       # 설정 파일
       - "mypy.ini"
@@ -71,6 +74,7 @@ on:
       - "backend/app/api/routes/config.py"
       - "backend/app/api/routes/health.py"
       - "backend/app/api/routes/reports.py"
+      - "backend/app/api/routes/recommendations.py"
       - "backend/app/core/config.py"
       - "backend/app/dependencies.py"
       - "backend/app/main.py"
@@ -80,6 +84,8 @@ on:
       - "backend/app/services/llm.py"
       - "backend/app/services/places.py"
       - "backend/app/services/reports.py"
+      - "backend/app/services/recommendations.py"
+      - "backend/app/services/weather.py"
       - "backend/app/services/visits.py"
       # 설정 파일
       - "mypy.ini"
