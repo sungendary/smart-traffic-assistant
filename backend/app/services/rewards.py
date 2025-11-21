@@ -37,32 +37,43 @@ async def grant_rewards(
     points_reward = place_doc.get("points_reward", 500)
     badge_reward = place_doc.get("badge_reward", "")
     
-    # 이미 이 챌린지를 완료했는지 확인
+    # 위치 인증, 별점, 리뷰가 모두 완료된 방문 기록 확인
     try:
         couple_obj_id = ObjectId(couple_id)
     except Exception:
         return {"points": 0, "badges": []}
     
-    existing_visit = await db[VISITS_COL].find_one({
+    # 보상 지급 전 최종 검증: 위치 인증, 별점, 리뷰가 모두 완료되었는지 확인
+    completed_visit = await db[VISITS_COL].find_one({
         "couple_id": couple_obj_id,
         "challenge_place_id": place_obj_id,
-        "review_completed": True
+        "location_verified": True,
+        "review_completed": True,
+        "rating": {"$ne": None},
+        "memo": {"$ne": ""}
     })
     
-    if existing_visit:
-        # 이미 완료한 챌린지이므로 지급하지 않음
-        couple_doc = await db[COUPLES_COL].find_one({"_id": couple_obj_id})
-        current_points = couple_doc.get("points", 0) if couple_doc else 0
-        current_badges = couple_doc.get("badges", []) if couple_doc else []
-        return {"points": current_points, "badges": current_badges}
-    
-    # 포인트 및 배지 지급
+    # 커플 정보 조회
     couple_doc = await db[COUPLES_COL].find_one({"_id": couple_obj_id})
     if not couple_doc:
         return {"points": 0, "badges": []}
     
-    current_points = couple_doc.get("points", 0)
+    if not completed_visit:
+        # 조건을 만족하지 않으면 지급하지 않음
+        current_points = couple_doc.get("points", 0)
+        current_badges = couple_doc.get("badges", [])
+        return {"points": current_points, "badges": current_badges}
+    
+    # 이미 보상을 받았는지 확인: 커플의 배지 목록에 해당 배지가 있는지 확인
     current_badges = couple_doc.get("badges", [])
+    
+    # 배지가 이미 있으면 이미 보상을 받은 것으로 간주
+    if badge_reward and badge_reward in current_badges:
+        current_points = couple_doc.get("points", 0)
+        return {"points": current_points, "badges": current_badges}
+    
+    # 포인트 및 배지 지급
+    current_points = couple_doc.get("points", 0)
     
     new_points = current_points + points_reward
     new_badges = current_badges.copy()

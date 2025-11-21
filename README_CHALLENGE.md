@@ -14,35 +14,6 @@ docker compose exec api python -m scripts.init_challenge_places
 cd backend
 python scripts/init_challenge_places.py
 ```
-
-### 방법 2: 관리자 API 사용
-
-관리자 이메일을 `.env` 파일에 설정한 후:
-
-```bash
-# .env 파일에 추가
-ADMIN_EMAIL=your-admin@email.com
-```
-
-그 다음 관리자 계정으로 로그인하여 API를 통해 챌린지 장소를 생성할 수 있습니다:
-
-```bash
-# 예시: POST /api/admin/challenge-places
-curl -X POST http://localhost:8000/api/admin/challenge-places \
-  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "수원 화성 성곽길",
-    "description": "유네스코 세계문화유산인 수원 화성을 따라 걷는 로맨틱한 산책 코스",
-    "latitude": 37.2886,
-    "longitude": 127.0123,
-    "address": "경기도 수원시 팔달구 정조로 825",
-    "tags": ["산책", "역사", "로맨틱", "야외"],
-    "badge_reward": "🏛️",
-    "points_reward": 500
-  }'
-```
-
 ## 2. 확인 방법
 
 1. 브라우저에서 로그인 후 "챌린지" 메뉴 클릭
