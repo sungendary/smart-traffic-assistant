@@ -22,6 +22,7 @@ class SavedReport(BaseModel):
     id: Optional[str] = Field(None, alias="_id")
     couple_id: str
     month: str
+    name: str = Field(default="", description="리포트 이름 (사용자 지정)")
     visit_count: int
     top_tags: list[str]
     emotion_stats: dict[str, int]

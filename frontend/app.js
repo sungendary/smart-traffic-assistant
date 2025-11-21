@@ -251,12 +251,52 @@ function renderRightPanel() {
       container.appendChild(summaryCard);
       return;
     }
-    const summaryBody = document.createElement("p");
+    const summaryBody = document.createElement("div");
     summaryBody.className = "report-summary-text";
-    // 마크다운 **텍스트**를 <strong>텍스트</strong>로 변환
-    const summaryText = state.report.summary
+    // 마크다운 **텍스트**를 <strong>텍스트</strong>로 변환하고 문단 구분
+    let summaryText = state.report.summary
       ? state.report.summary.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
       : "커플 매니저에게 칭찬 편지를 부탁해보세요.";
+    
+    // 문장을 문단으로 분리하여 들여쓰기 적용
+    if (state.report.summary) {
+      // 문장 단위로 분리 (마침표, 느낌표, 물음표 뒤 공백 기준)
+      const sentences = summaryText.split(/([.!?。！？]\s+)/).filter(s => s.trim());
+      let paragraphs = [];
+      let currentPara = [];
+      
+      // 문장들을 2-3개씩 묶어서 문단으로 만들기
+      for (let i = 0; i < sentences.length; i += 2) {
+        const sentence = sentences[i];
+        const punctuation = i + 1 < sentences.length ? sentences[i + 1] : '';
+        const fullSentence = (sentence + punctuation).trim();
+        
+        if (fullSentence) {
+          currentPara.push(fullSentence);
+          
+          // 2개 문장마다 문단 구분
+          if (currentPara.length >= 2) {
+            paragraphs.push(currentPara.join(' '));
+            currentPara = [];
+          }
+        }
+      }
+      
+      // 남은 문장들 처리
+      if (currentPara.length > 0) {
+        paragraphs.push(currentPara.join(' '));
+      }
+      
+      // 문단이 없으면 전체를 하나의 문단으로
+      if (paragraphs.length === 0) {
+        paragraphs = [summaryText];
+      }
+      
+      summaryText = paragraphs.map(para => `<p>${para}</p>`).join('');
+    } else {
+      summaryText = `<p>${summaryText}</p>`;
+    }
+    
     summaryBody.innerHTML = summaryText;
     summaryCard.appendChild(summaryBody);
 
@@ -278,6 +318,46 @@ function renderRightPanel() {
       const emotionLine = topEmotion ? `${topEmotion[0]} 기분이 ${topEmotion[1]}번이나 나왔네요!` : "다음 기록도 궁금해요!";
       childlikeLine.textContent = `🍓 커플 매니저: "${emotionLine} 다음 데이트도 제가 응원할게요!"`;
       summaryCard.appendChild(childlikeLine);
+      
+      // 리포트 이름 변경 섹션 추가
+      const nameSection = document.createElement("div");
+      nameSection.className = "report-name-section";
+      nameSection.style.marginTop = "1.5rem";
+      nameSection.style.paddingTop = "1.5rem";
+      nameSection.style.borderTop = "1px solid var(--border)";
+      
+      const nameLabel = document.createElement("label");
+      nameLabel.textContent = "리포트 이름";
+      nameLabel.style.display = "block";
+      nameLabel.style.marginBottom = "0.5rem";
+      nameLabel.style.fontSize = "0.9rem";
+      nameLabel.style.color = "var(--text-muted)";
+      
+      const nameInput = document.createElement("input");
+      nameInput.type = "text";
+      nameInput.id = "report-name-input";
+      nameInput.placeholder = `${state.report.month || new Date().toISOString().slice(0, 7)} 리포트`;
+      nameInput.value = state.report.name || "";
+      nameInput.className = "primary-input";
+      nameInput.style.width = "100%";
+      nameInput.style.marginBottom = "0.75rem";
+      
+      const saveNameBtn = document.createElement("button");
+      saveNameBtn.id = "save-report-name-btn";
+      saveNameBtn.className = "primary-btn";
+      saveNameBtn.textContent = "이름 저장";
+      saveNameBtn.style.width = "100%";
+      
+      nameSection.appendChild(nameLabel);
+      nameSection.appendChild(nameInput);
+      nameSection.appendChild(saveNameBtn);
+      summaryCard.appendChild(nameSection);
+      
+      // 이름 저장 버튼 이벤트
+      saveNameBtn.addEventListener("click", () => {
+        const reportName = nameInput.value.trim() || `${state.report.month || new Date().toISOString().slice(0, 7)} 리포트`;
+        saveReportWithName(state.report.month, reportName);
+      });
     }
     container.appendChild(summaryCard);
     const summaryBtn = select("#generate-summary-btn");
@@ -307,9 +387,9 @@ function renderRightPanel() {
         document.head.appendChild(style);
       }
     } else if (state.report) {
-      const wrapper = document.createElement("div");
-      wrapper.className = "stack";
-      
+    const wrapper = document.createElement("div");
+    wrapper.className = "stack";
+    
       // 리포트 헤더
       const headerCard = document.createElement("div");
       headerCard.className = "card";
@@ -356,8 +436,8 @@ function renderRightPanel() {
                   <div style="height: 8px; background: var(--border); border-radius: 4px; overflow: hidden;">
                     <div style="height: 100%; width: ${progress}%; background: linear-gradient(90deg, #ff5a99, #ff80b2); transition: width 0.3s ease;"></div>
                   </div>
-                </div>
-              `;
+      </div>
+    `;
             }).join('')}
           </div>
         `;
@@ -375,7 +455,7 @@ function renderRightPanel() {
       reportCard.appendChild(saveSection);
       
       wrapper.appendChild(reportCard);
-      container.appendChild(wrapper);
+    container.appendChild(wrapper);
 
       // 저장 버튼 이벤트
       select("#save-report-btn")?.addEventListener("click", handleSaveReport);
@@ -737,52 +817,67 @@ function renderReportsView() {
   `;
   wrapper.appendChild(statsCard);
 
-  const formCard = document.createElement("div");
-  formCard.className = "card";
-  formCard.innerHTML = `
-    <h2 class="section-title">리포트 생성</h2>
-    <form id="report-form" class="stack">
+  // 리포트 생성 & 저장된 보고서 통합
+  const reportsCard = document.createElement("div");
+  reportsCard.className = "card";
+  reportsCard.innerHTML = `
+    <h2 class="section-title">저장된 리포트</h2>
+    <form id="report-form" class="stack" style="margin-bottom: 1.5rem;">
       <input type="month" name="month" value="${month}" />
       <button type="submit" class="primary-btn" id="report-submit-btn" ${state.isGeneratingReport ? 'disabled' : ''}>
         ${state.isGeneratingReport ? '생성 중...' : '리포트 확인하기'}
       </button>
     </form>
-  `;
-  wrapper.appendChild(formCard);
-
-  if (state.savedReports && state.savedReports.length > 0) {
-    const savedCard = document.createElement("div");
-    savedCard.className = "card";
-    savedCard.innerHTML = `
-      <h2 class="section-title">저장된 보고서</h2>
-      <div class="stack" style="max-height: 300px; overflow-y: auto;">
-        ${state.savedReports.map(report => `
-          <div class="card sub" style="cursor: pointer;" data-report-id="${report.id}">
+    ${state.savedReports && state.savedReports.length > 0 ? `
+      <div class="stack" style="max-height: 400px; overflow-y: auto;">
+        ${state.savedReports.map(report => {
+          const reportId = report.id || report._id || '';
+          const reportName = report.name || `${report.month} 리포트`;
+          return `
+          <div class="card sub" style="cursor: pointer; transition: transform 0.2s ease, box-shadow 0.2s ease;" data-report-id="${reportId}">
             <div style="display: flex; justify-content: space-between; align-items: center;">
               <div>
-                <h3 style="margin: 0; font-size: 0.95rem;">${report.month} 리포트</h3>
+                <h3 style="margin: 0; font-size: 0.95rem; font-weight: 600;">${reportName}</h3>
                 <p style="margin: 0.25rem 0 0 0; font-size: 0.85rem; color: var(--text-muted);">
-                  ${new Date(report.created_at).toLocaleDateString('ko-KR')}
+                  ${new Date(report.created_at).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })}
                 </p>
               </div>
               <span class="inline-chip">${report.visit_count}회 방문</span>
             </div>
           </div>
-        `).join('')}
+        `;
+        }).join('')}
       </div>
+    ` : `
+      <p class="section-caption">아직 저장된 리포트가 없습니다. 리포트를 생성하면 여기에 표시됩니다.</p>
+    `}
+  `;
+  wrapper.appendChild(reportsCard);
+  
+  // 호버 효과 스타일 추가
+  if (!document.querySelector('#report-hover-style')) {
+    const style = document.createElement("style");
+    style.id = 'report-hover-style';
+    style.textContent = `
+      .card.sub[data-report-id]:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(255, 90, 153, 0.15);
+        border-color: rgba(255, 90, 153, 0.3);
+      }
     `;
-    wrapper.appendChild(savedCard);
-    
-    selectAll('[data-report-id]').forEach(el => {
-      el.addEventListener('click', () => {
-        const reportId = el.dataset.reportId;
-        loadSavedReport(reportId);
-      });
-    });
+    document.head.appendChild(style);
   }
-
+  
   sidebar.appendChild(wrapper);
   select("#report-form").addEventListener("submit", handleReportForm);
+  
+  // 저장된 리포트 클릭 이벤트
+  selectAll('[data-report-id]').forEach(el => {
+    el.addEventListener('click', () => {
+      const reportId = el.dataset.reportId;
+      loadSavedReport(reportId);
+    });
+  });
 }
 
 function renderLeftSidebar() {
@@ -1138,6 +1233,72 @@ async function handleSaveReport() {
   }
 }
 
+async function saveReportWithName(month, name) {
+  if (!state.report) return;
+  
+  // 즉시 UI 업데이트 (낙관적 업데이트)
+  const originalName = state.report.name;
+  state.report.name = name;
+  
+  // 저장된 리포트 목록에서도 즉시 업데이트
+  if (state.savedReports) {
+    const reportIndex = state.savedReports.findIndex(r => (r.id || r._id) === (state.report.id || state.report._id));
+    if (reportIndex !== -1) {
+      state.savedReports[reportIndex].name = name;
+    }
+  }
+  
+  // 우측 사이드바 즉시 업데이트
+  renderRightPanel();
+  // 좌측 사이드바도 즉시 업데이트
+  if (state.currentView === "reports") {
+    renderReportsView();
+  }
+  
+  try {
+    // 백그라운드에서 저장 (에러 발생 시 롤백)
+    const saved = await fetchJSON(`/api/reports/monthly/save?month=${month}`, {
+      method: "POST",
+      body: JSON.stringify({
+        ...state.report,
+        name: name,
+      }),
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+    
+    // 저장 성공 시 상태 동기화
+    if (saved.id || saved._id) {
+      state.report.id = saved.id || saved._id;
+    }
+    
+    // 성공 메시지 (alert 대신 더 빠른 피드백)
+    const nameInput = select("#report-name-input");
+    if (nameInput) {
+      const originalText = nameInput.value;
+      nameInput.style.borderColor = "var(--accent)";
+      setTimeout(() => {
+        nameInput.style.borderColor = "";
+      }, 1000);
+    }
+  } catch (error) {
+    // 에러 발생 시 롤백
+    state.report.name = originalName;
+    if (state.savedReports) {
+      const reportIndex = state.savedReports.findIndex(r => (r.id || r._id) === (state.report.id || state.report._id));
+      if (reportIndex !== -1) {
+        state.savedReports[reportIndex].name = originalName;
+      }
+    }
+    renderRightPanel();
+    if (state.currentView === "reports") {
+      renderReportsView();
+    }
+    alert(`저장 실패: ${error.message}`);
+  }
+}
+
 async function loadSavedReports() {
   if (!state.user) return;
   try {
@@ -1158,11 +1319,164 @@ async function loadSavedReports() {
 async function loadSavedReport(reportId) {
   if (!state.user) return;
   try {
-    state.report = await fetchJSON(`/api/reports/saved/${reportId}`);
-    renderApp();
+    const report = await fetchJSON(`/api/reports/saved/${reportId}`);
+    showReportModal(report);
   } catch (error) {
     alert(error.message);
   }
+}
+
+function showReportModal(report) {
+  // 기존 모달이 있으면 제거
+  const existingModal = select("#report-modal");
+  if (existingModal) {
+    existingModal.remove();
+  }
+  
+  // 모달 오버레이 생성
+  const modal = document.createElement("div");
+  modal.id = "report-modal";
+  modal.className = "report-modal-overlay";
+  
+  // 메모지 스타일 컨테이너
+  const memoContainer = document.createElement("div");
+  memoContainer.className = "report-memo-container";
+  
+  // 닫기 버튼
+  const closeBtn = document.createElement("button");
+  closeBtn.className = "report-modal-close";
+  closeBtn.innerHTML = "×";
+  closeBtn.addEventListener("click", () => {
+    modal.remove();
+  });
+  
+  // 오버레이 클릭 시 닫기
+  modal.addEventListener("click", (e) => {
+    if (e.target === modal) {
+      modal.remove();
+    }
+  });
+  
+  // ESC 키로 닫기
+  const handleEsc = (e) => {
+    if (e.key === "Escape") {
+      modal.remove();
+      document.removeEventListener("keydown", handleEsc);
+    }
+  };
+  document.addEventListener("keydown", handleEsc);
+  
+  // 리포트 내용
+  const month = report.month || new Date().toISOString().slice(0, 7);
+  const reportName = report.name || `${month} 리포트`;
+  const entries = Object.entries(report.emotion_stats || {});
+  const topEmotion = entries.length ? entries.sort((a, b) => b[1] - a[1])[0] : null;
+  const { visit_count, emotion_stats, top_tags, challenge_progress } = report;
+  const totalEmotions = Object.values(emotion_stats || {}).reduce((a, b) => a + b, 0);
+  const completedChallenges = (challenge_progress || []).filter(c => c.current >= c.goal).length;
+  
+  // 마크다운 **텍스트**를 <strong>텍스트</strong>로 변환하고 문단 구분
+  let summaryText = report.summary
+    ? report.summary.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    : "리포트 요약이 없습니다.";
+  
+  // 문장을 문단으로 분리하여 들여쓰기 적용
+  if (report.summary) {
+    const sentences = summaryText.split(/([.!?。！？]\s+)/).filter(s => s.trim());
+    let paragraphs = [];
+    let currentPara = [];
+    
+    for (let i = 0; i < sentences.length; i += 2) {
+      const sentence = sentences[i];
+      const punctuation = i + 1 < sentences.length ? sentences[i + 1] : '';
+      const fullSentence = (sentence + punctuation).trim();
+      
+      if (fullSentence) {
+        currentPara.push(fullSentence);
+        
+        if (currentPara.length >= 2) {
+          paragraphs.push(currentPara.join(' '));
+          currentPara = [];
+        }
+      }
+    }
+    
+    if (currentPara.length > 0) {
+      paragraphs.push(currentPara.join(' '));
+    }
+    
+    if (paragraphs.length === 0) {
+      paragraphs = [summaryText];
+    }
+    
+    summaryText = paragraphs.map(para => `<p>${para}</p>`).join('');
+  } else {
+    summaryText = `<p>${summaryText}</p>`;
+  }
+  
+  memoContainer.innerHTML = `
+    <div class="report-memo-header">
+      <h1 class="report-memo-title">${reportName}</h1>
+      <p class="report-memo-date">${new Date(report.created_at).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+    </div>
+    
+    <div class="report-memo-stats">
+      <div class="report-memo-stat-item">
+        <span class="stat-label">방문 횟수</span>
+        <span class="stat-value">${visit_count || 0}회</span>
+      </div>
+      <div class="report-memo-stat-item">
+        <span class="stat-label">완료 챌린지</span>
+        <span class="stat-value">${completedChallenges}개</span>
+      </div>
+      ${topEmotion ? `
+      <div class="report-memo-stat-item">
+        <span class="stat-label">주요 감정</span>
+        <span class="stat-value">${topEmotion[0]} (${topEmotion[1]}회)</span>
+      </div>
+      ` : ''}
+    </div>
+    
+    <div class="report-memo-summary">
+      <h2 class="report-memo-section-title">커플 매니저의 칭찬 편지</h2>
+      <div class="report-memo-summary-text">${summaryText}</div>
+      ${topEmotion ? `
+      <div class="report-memo-footer">
+        <p class="report-childlike">🍓 커플 매니저: "${topEmotion[0]} 기분이 ${topEmotion[1]}번이나 나왔네요! 다음 데이트도 제가 응원할게요!"</p>
+      </div>
+      ` : ''}
+    </div>
+    
+    ${top_tags && top_tags.length > 0 ? `
+    <div class="report-memo-tags">
+      <h3 class="report-memo-section-subtitle">인기 태그</h3>
+      <div class="inline-chips">
+        ${top_tags.map(tag => `<span class="inline-chip">${tag}</span>`).join('')}
+      </div>
+    </div>
+    ` : ''}
+    
+    ${Object.keys(emotion_stats || {}).length > 0 ? `
+    <div class="report-memo-emotions">
+      <h3 class="report-memo-section-subtitle">감정 분포</h3>
+      <ul class="tip-list">
+        ${Object.entries(emotion_stats).map(([emotion, count]) => {
+          const percentage = totalEmotions > 0 ? Math.round((count / totalEmotions) * 100) : 0;
+          return `<li>${emotion}: ${count}회 (${percentage}%)</li>`;
+        }).join('')}
+      </ul>
+    </div>
+    ` : ''}
+  `;
+  
+  memoContainer.appendChild(closeBtn);
+  modal.appendChild(memoContainer);
+  document.body.appendChild(modal);
+  
+  // 애니메이션을 위해 약간의 지연 후 표시
+  setTimeout(() => {
+    modal.classList.add("show");
+  }, 10);
 }
 
 async function loadCouple() {
@@ -1222,16 +1536,22 @@ async function loadReportSummary(month) {
   renderApp();
   try {
     const data = await fetchJSON(`/api/reports/monthly/summary?month=${month || new Date().toISOString().slice(0, 7)}`, {
-      method: "POST",
+          method: "POST",
     });
     state.report = data;
     
     // 리포트 요약 생성 후 자동으로 DB에 저장 (이미 생성된 리포트 데이터 전달하여 중복 LLM 호출 방지)
     try {
+      const defaultName = `${month || new Date().toISOString().slice(0, 7)} 리포트`;
       const saved = await fetchJSON(`/api/reports/monthly/save?month=${month || new Date().toISOString().slice(0, 7)}`, {
         method: "POST",
-        body: JSON.stringify(data),  // 이미 생성된 리포트 데이터 전달
+        body: JSON.stringify({
+          ...data,
+          name: defaultName,
+        }),  // 이미 생성된 리포트 데이터 전달
       });
+      // 리포트 상태에 이름 추가
+      state.report.name = defaultName;
       // 저장된 리포트 목록 새로고침
       await loadSavedReports();
       console.log("리포트가 자동으로 저장되었습니다.");
@@ -1239,12 +1559,12 @@ async function loadReportSummary(month) {
       console.error("리포트 저장 실패:", saveError);
       // 저장 실패해도 요약은 표시
     }
-  } catch (error) {
-    alert(error.message);
+    } catch (error) {
+      alert(error.message);
   } finally {
     state.summaryLoading = false;
     renderApp();
-  }
+    }
 }
 
 async function loadInitialData() {
