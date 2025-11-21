@@ -26,12 +26,18 @@ on:
   schedule:
     - cron: "0 2 * * 1"
   push:
+    branches:
+      - main
+      - develop_branch
     paths:
       # 의존성이나 백엔드 코드 변경 시에만 실행
       - "backend/requirements.txt"
       - "backend/app/**"
       - ".github/workflows/security-baseline.yml"
   pull_request:
+    branches:
+      - main
+      - develop_branch
     paths:
       # 의존성이나 백엔드 코드 변경 시에만 실행
       - "backend/requirements.txt"

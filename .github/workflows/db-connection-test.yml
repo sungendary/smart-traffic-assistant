@@ -22,6 +22,9 @@ name: Database Connection Test
 
 on:
   push:
+    branches:
+      - main
+      - develop_branch
     paths:
       # DB 연결 테스트 파일만 변경 시 실행
       - "backend/tests/db/**"
@@ -29,6 +32,9 @@ on:
       - "backend/app/db/**"
       - ".github/workflows/db-connection-test.yml"
   pull_request:
+    branches:
+      - main
+      - develop_branch
     paths:
       # DB 연결 테스트 파일만 변경 시 실행
       - "backend/tests/db/**"

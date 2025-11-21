@@ -11,7 +11,7 @@ pydantic-settings==2.6.1
 python-multipart==0.0.18
 email-validator==2.1.1
 langchain>=1.0.0
-langchain-community>=1.0.0
+langchain-community>=0.4.1  # Latest available version (1.0.0 doesn't exist)
 langchain-text-splitters>=1.0.0
 langchain-core>=1.0.0  # Fix for GHSA-6qv9-48xg-fc7f (template injection vulnerability)
 httpx>=0.28.1  # Updated to support h11>=0.16.0 (fixes GHSA-vqfr-h8mv-ghfj)

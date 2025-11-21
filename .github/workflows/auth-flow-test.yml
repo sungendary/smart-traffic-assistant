@@ -25,6 +25,9 @@ name: Authentication Flow Test
 
 on:
   push:
+    branches:
+      - main
+      - develop_branch
     paths:
       # 인증 테스트 파일만 변경 시 실행
       - "backend/tests/auth/**"
@@ -35,6 +38,9 @@ on:
       - "backend/app/services/users.py"
       - ".github/workflows/auth-flow-test.yml"
   pull_request:
+    branches:
+      - main
+      - develop_branch
     paths:
       # 인증 테스트 파일만 변경 시 실행
       - "backend/tests/auth/**"

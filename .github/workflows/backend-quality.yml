@@ -27,6 +27,9 @@ name: Backend Quality
 
 on:
   push:
+    branches:
+      - main
+      - develop_branch
     paths:
       # 일반 테스트 파일 (핵심 기능/DB/인증 테스트 제외)
       - "backend/tests/journey/**"
@@ -62,6 +65,9 @@ on:
       # 워크플로우 파일
       - ".github/workflows/backend-quality.yml"
   pull_request:
+    branches:
+      - main
+      - develop_branch
     paths:
       # 일반 테스트 파일 (핵심 기능/DB/인증 테스트 제외)
       - "backend/tests/journey/**"

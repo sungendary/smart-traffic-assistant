@@ -31,6 +31,9 @@ name: Core Features Test
 
 on:
   push:
+    branches:
+      - main
+      - develop_branch
     paths:
       # 핵심 기능 테스트 파일만 변경 시 실행
       - "backend/tests/core_features/**"
@@ -46,6 +49,9 @@ on:
       - "backend/app/services/reports.py"
       - ".github/workflows/core-features-test.yml"
   pull_request:
+    branches:
+      - main
+      - develop_branch
     paths:
       # 핵심 기능 테스트 파일만 변경 시 실행
       - "backend/tests/core_features/**"
