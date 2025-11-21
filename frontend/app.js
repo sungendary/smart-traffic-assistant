@@ -63,6 +63,15 @@ function setStatus(message, type = "info") {
   overlay.classList.toggle("hidden", !message);
 }
 
+// 마크다운 **텍스트**를 <strong>텍스트</strong>로 변환하는 헬퍼 함수
+function markdownToHTML(text) {
+  if (!text) return "";
+  return text
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g, '<em>$1</em>')
+    .replace(/\n/g, '<br>');
+}
+
 async function fetchJSON(url, options = {}) {
   const headers = { "Content-Type": "application/json", ...(options.headers || {}) };
   if (state.accessToken) {
@@ -74,6 +83,17 @@ async function fetchJSON(url, options = {}) {
     headers,
   });
   if (!response.ok) {
+    // 401 Unauthorized인 경우 세션 만료로 간주하고 사용자 상태 초기화
+    if (response.status === 401) {
+      state.accessToken = null;
+      state.user = null;
+      persistSession();
+      // 리포트나 다른 데이터도 초기화
+      state.report = null;
+      state.savedReports = [];
+      state.reportLoading = false;
+      state.savedReportsLoaded = false;
+    }
     const detail = await response.json().catch(() => ({}));
     throw new Error(detail.detail || `요청 실패 (${response.status})`);
   }
@@ -227,34 +247,36 @@ function renderRightPanel() {
     summaryCard.className = "card report-summary-card";
     summaryCard.innerHTML = `<h2 class="section-title">꼬마 매니저의 칭찬 편지</h2>`;
     if (!state.report) {
-      summaryCard.innerHTML += `<p class="section-caption">리포트를 불러오면 토토에게 편지를 부탁할 수 있어요.</p>`;
+      summaryCard.innerHTML += `<p class="section-caption">리포트를 불러오면 커플 매니저에게 편지를 부탁할 수 있어요.</p>`;
       container.appendChild(summaryCard);
       return;
     }
     const summaryBody = document.createElement("p");
     summaryBody.className = "report-summary-text";
-    summaryBody.textContent = state.report.summary
-      ? state.report.summary
-      : "토토에게 칭찬 편지를 부탁해보세요.";
+    // 마크다운 **텍스트**를 <strong>텍스트</strong>로 변환
+    const summaryText = state.report.summary
+      ? state.report.summary.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+      : "커플 매니저에게 칭찬 편지를 부탁해보세요.";
+    summaryBody.innerHTML = summaryText;
     summaryCard.appendChild(summaryBody);
 
     if (state.summaryLoading) {
       const loadingLine = document.createElement("p");
       loadingLine.className = "section-caption";
-      loadingLine.textContent = "토토가 편지를 쓰는 중이에요...";
+      loadingLine.textContent = "커플 매니저가 편지를 쓰는 중이에요...";
       summaryCard.appendChild(loadingLine);
     } else if (!state.report.summary) {
       const button = document.createElement("button");
       button.id = "generate-summary-btn";
       button.className = "primary-btn";
-      button.textContent = "토토에게 칭찬 받기";
+      button.textContent = "커플 매니저에게 칭찬 받기";
       summaryCard.appendChild(button);
     } else {
       const topEmotion = Object.entries(state.report.emotion_stats || {}).sort((a, b) => b[1] - a[1])[0];
       const childlikeLine = document.createElement("p");
       childlikeLine.className = "report-childlike";
       const emotionLine = topEmotion ? `${topEmotion[0]} 기분이 ${topEmotion[1]}번이나 나왔네요!` : "다음 기록도 궁금해요!";
-      childlikeLine.textContent = `🍓 토토 매니저: "${emotionLine} 다음 데이트도 제가 응원할게요!"`;
+      childlikeLine.textContent = `🍓 커플 매니저: "${emotionLine} 다음 데이트도 제가 응원할게요!"`;
       summaryCard.appendChild(childlikeLine);
     }
     container.appendChild(summaryCard);
@@ -638,11 +660,17 @@ function renderReportsView() {
     return;
   }
 
-  if (!state.report && !state.reportLoading) {
+  if (!state.report && !state.reportLoading && state.accessToken) {
     state.reportLoading = true;
     loadReport()
       .then(() => renderApp())
-      .catch((error) => console.error(error));
+      .catch((error) => {
+        console.error("리포트 로드 실패:", error);
+        // 401 에러인 경우 이미 fetchJSON에서 상태가 초기화되었으므로 다시 렌더링
+        if (!state.user || !state.accessToken) {
+          renderApp();
+        }
+      });
   }
 
   if (state.reportLoading) {
@@ -766,9 +794,12 @@ function renderLeftSidebar() {
     renderCoupleView();
   } else if (state.currentView === "reports") {
     renderReportsView();
-    if (state.user && !state.savedReportsLoaded) {
+    if (state.user && !state.savedReportsLoaded && state.accessToken) {
       state.savedReportsLoaded = true;
       loadSavedReports().then(() => {
+        renderReportsView();
+      }).catch(() => {
+        // 에러 발생 시 리포트 뷰만 다시 렌더링 (이미 fetchJSON에서 상태 초기화됨)
         renderReportsView();
       });
     }
@@ -1114,8 +1145,13 @@ async function loadSavedReports() {
     state.savedReportsLoaded = true;
   } catch (error) {
     console.error("저장된 리포트를 불러오지 못했습니다.", error);
+    // 401 에러인 경우 빈 배열로 설정하고 로그인 필요 상태로 전환
     state.savedReports = [];
     state.savedReportsLoaded = true;
+    // 사용자 상태가 초기화되었으면 리포트 뷰를 다시 렌더링
+    if (!state.user) {
+      renderApp();
+    }
   }
 }
 
@@ -1169,6 +1205,11 @@ async function loadReport(month) {
     state.report = await fetchJSON(`/api/reports/monthly?month=${month || new Date().toISOString().slice(0, 7)}`);
   } catch (error) {
     console.error("리포트 불러오기 실패", error);
+    // 401 에러인 경우 리포트 뷰를 다시 렌더링하여 "로그인 필요" 메시지 표시
+    if (error.message.includes("401") || !state.user) {
+      state.report = null;
+      renderApp();
+    }
     throw error;
   } finally {
     state.reportLoading = false;
@@ -1184,6 +1225,20 @@ async function loadReportSummary(month) {
       method: "POST",
     });
     state.report = data;
+    
+    // 리포트 요약 생성 후 자동으로 DB에 저장 (이미 생성된 리포트 데이터 전달하여 중복 LLM 호출 방지)
+    try {
+      const saved = await fetchJSON(`/api/reports/monthly/save?month=${month || new Date().toISOString().slice(0, 7)}`, {
+        method: "POST",
+        body: JSON.stringify(data),  // 이미 생성된 리포트 데이터 전달
+      });
+      // 저장된 리포트 목록 새로고침
+      await loadSavedReports();
+      console.log("리포트가 자동으로 저장되었습니다.");
+    } catch (saveError) {
+      console.error("리포트 저장 실패:", saveError);
+      // 저장 실패해도 요약은 표시
+    }
   } catch (error) {
     alert(error.message);
   } finally {

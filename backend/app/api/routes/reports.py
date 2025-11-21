@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from bson import ObjectId
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, status
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from ...core.auth import get_current_user
@@ -41,12 +41,17 @@ async def save_monthly_report(
     month: str = Query(default_factory=lambda: datetime.utcnow().strftime("%Y-%m")),
     current_user: UserPublic = Depends(get_current_user),
     db: AsyncIOMotorDatabase = Depends(get_mongo_db),
+    report_data: ReportResponse | None = Body(None),
 ) -> SavedReport:
     couple = await get_or_create_couple(db, current_user.id)
     couple_id = str(couple["_id"])
     
-    # 리포트 생성 (summary 포함)
-    report_data = await build_monthly_report(db, couple_id, month, include_summary=True)
+    # 리포트 데이터가 제공되고 summary가 있으면 재사용 (LLM 호출 방지)
+    if report_data and report_data.summary:
+        report_data_dict = report_data.model_dump()
+    else:
+        # 리포트 데이터가 없거나 summary가 없으면 새로 생성
+        report_data_dict = await build_monthly_report(db, couple_id, month, include_summary=True)
     
     # 기존 리포트가 있는지 확인
     existing = await db[REPORTS_COL].find_one({
@@ -61,7 +66,7 @@ async def save_monthly_report(
             {"_id": existing["_id"]},
             {
                 "$set": {
-                    **report_data,
+                    **report_data_dict,
                     "updated_at": now,
                 }
             }
@@ -71,7 +76,7 @@ async def save_monthly_report(
         # 새로 생성
         doc = {
             "couple_id": ObjectId(couple_id),
-            **report_data,
+            **report_data_dict,
             "created_at": now,
             "updated_at": now,
         }
