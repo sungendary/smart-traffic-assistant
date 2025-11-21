@@ -10,9 +10,11 @@ pydantic==2.9.2
 pydantic-settings==2.6.1
 python-multipart==0.0.18
 email-validator==2.1.1
-langchain==0.3.26
-langchain-community==0.3.27
-langchain-text-splitters==0.3.9
-httpx==0.25.0
+langchain>=1.0.0
+langchain-community>=1.0.0
+langchain-text-splitters>=1.0.0
+langchain-core>=1.0.0  # Fix for GHSA-6qv9-48xg-fc7f (template injection vulnerability)
+httpx>=0.28.1  # Updated to support h11>=0.16.0 (fixes GHSA-vqfr-h8mv-ghfj)
+h11>=0.16.0  # Fix for GHSA-vqfr-h8mv-ghfj (request smuggling vulnerability)
 google-genai==0.2.2
 # Starlette is upgraded separately to 0.49.1 (see CI) to address GHSA advisories while FastAPI metadata is updated upstream.
