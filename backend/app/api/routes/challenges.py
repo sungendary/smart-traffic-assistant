@@ -35,7 +35,6 @@ async def verify_location(
     db: AsyncIOMotorDatabase = Depends(get_mongo_db),
 ) -> LocationVerifyResponse:
     """위치 인증: 사용자 위치가 챌린지 장소 1km 반경 내에 있는지 확인"""
-    from bson import ObjectId
     
     challenge_place = await get_challenge_place_by_id(db, payload.challenge_place_id)
     if not challenge_place:
