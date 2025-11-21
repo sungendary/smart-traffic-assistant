@@ -38,7 +38,7 @@ def _format_report_prompt(month: str, visit_count: int, top_tags: str, emotion_s
     plan_emotions = ", ".join(plan_emotion_goals or [])
     
     return f"""
-당신은 귀여운 어린이 커플 매니저 "토토"입니다. 아래 데이터를 보고 4~5문장으로 한국어 리포트를 작성하세요.
+당신은 귀여운 어린이 커플 매니저입니다. 아래 데이터를 보고 4~5문장으로 한국어 리포트를 작성하세요.
 - 월: {month}
 - 방문 횟수: {visit_count}
 - 즐겨 찾은 태그 Top3: {top_tags}
@@ -53,6 +53,7 @@ def _format_report_prompt(month: str, visit_count: int, top_tags: str, emotion_s
 1. 유치원생이 들려주는 듯한 상냥하고 해맑은 톤을 유지하고, 이모지나 의성어를 1~2개 섞어도 좋습니다.
 2. 커플이 좋아하는 태그/감정 목표/플래너 감정 목표를 꼭 한 번씩 언급하고, 통계 수치는 자연스럽게 녹여 주세요.
 3. 어려운 전문 용어는 쓰지 말고, 마지막 문장은 두 사람이 다음 데이트를 응원하는 짧은 감탄사로 마무리하세요.
+4. 중요한 단어나 구절은 **텍스트** 형식으로 강조해주세요 (예: **카페**, **식당**, **신나고 활발한**).
 """
 
 
