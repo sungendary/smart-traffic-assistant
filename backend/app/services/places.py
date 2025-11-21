@@ -1,8 +1,13 @@
-from typing import Iterable
+import logging
+import httpx
+from typing import Iterable, Any
 
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
+from ..core.config import settings
 from ..schemas.place import Place
+
+logger = logging.getLogger(__name__)
 
 PLACES_COLLECTION = "places"
 
@@ -26,6 +31,83 @@ FALLBACK_PLACES = [
         source="sample",
     ),
 ]
+
+
+async def search_places_via_kakao(
+    lat: float,
+    lon: float,
+    radius_m: int = 5000,
+    limit: int = 15
+) -> list[dict[str, Any]]:
+    """
+    Kakao Local API를 사용하여 주변 장소 검색 (카테고리별)
+    """
+    if not settings.kakao_rest_api_key:
+        return []
+
+    # 데이트에 적합한 카테고리 코드
+    # FD6: 음식점, CE7: 카페, CT1: 문화시설, AT4: 관광명소
+    categories = ["FD6", "CE7", "CT1", "AT4"]
+    all_results = []
+    
+    async with httpx.AsyncClient(timeout=5.0) as client:
+        for code in categories:
+            try:
+                response = await client.get(
+                    "https://dapi.kakao.com/v2/local/search/category.json",
+                    params={
+                        "category_group_code": code,
+                        "x": lon,
+                        "y": lat,
+                        "radius": radius_m,
+                        "sort": "distance",
+                        "size": 5  # 카테고리별 5개씩
+                    },
+                    headers={"Authorization": f"KakaoAK {settings.kakao_rest_api_key}"}
+                )
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    documents = data.get("documents", [])
+                    
+                    for doc in documents:
+                        # 카테고리 이름 파싱 (예: "음식점 > 카페 > 테마카페")
+                        cat_name = doc.get("category_name", "").split(">")[-1].strip()
+                        if not cat_name:
+                            cat_name = doc.get("category_group_name", "기타")
+                              # 태그 생성
+                        tags = [cat_name]
+                        if code == "FD6":
+                            tags.append("맛집")
+                        elif code == "CE7":
+                            tags.append("카페")
+                        elif code == "CT1":
+                            tags.append("문화")
+                        elif code == "AT4":
+                            tags.append("관광")
+                        
+                        place = {
+                            "place_id": f"kakao-{doc.get('id')}",
+                            "place_name": doc.get("place_name"),
+                            "description": f"{doc.get('place_name')} - {cat_name}",
+                            "category_name": cat_name,
+                            "tags": tags,
+                            "rating": 0.0, # Kakao API는 평점 미제공
+                            "coordinates": {
+                                "latitude": float(doc.get("y")),
+                                "longitude": float(doc.get("x"))
+                            },
+                            "address": doc.get("road_address_name") or doc.get("address_name"),
+                            "phone": doc.get("phone", ""),
+                            "place_url": doc.get("place_url"),
+                            "source": "kakao"
+                        }
+                        all_results.append(place)
+            except Exception as e:
+                logger.warning(f"Kakao API 카테고리 {code} 검색 실패: {e}")
+                continue
+                
+    return all_results
 
 
 async def list_places(
@@ -68,16 +150,7 @@ async def get_nearby_places(
 ) -> list[dict]:
     """
     주변 장소를 조회 (딕셔너리 형태로 반환)
-    
-    Args:
-        db: MongoDB 데이터베이스
-        lat: 위도
-        lon: 경도
-        radius_km: 검색 반경 (km)
-        limit: 최대 결과 수
-    
-    Returns:
-        장소 정보 리스트 (dict)
+    DB에 데이터가 부족하면 Kakao API를 통해 보충
     """
     collection = db[PLACES_COLLECTION]
     
@@ -104,10 +177,25 @@ async def get_nearby_places(
             "coordinates": doc.get("coordinates", {"latitude": lat, "longitude": lon}),
             "address": doc.get("address", ""),
             "phone": doc.get("phone", ""),
+            "source": "db"
         }
         results.append(place_dict)
     
-    # 데이터가 없으면 샘플 데이터 반환
+    # DB 결과가 부족하고 Kakao API 키가 있으면 외부 API 호출
+    if len(results) < 5 and settings.kakao_rest_api_key:
+        try:
+            kakao_places = await search_places_via_kakao(lat, lon, int(radius_km * 1000))
+            # 중복 제거 (이름 기준)
+            existing_names = {p["place_name"] for p in results}
+            for kp in kakao_places:
+                if kp["place_name"] not in existing_names:
+                    results.append(kp)
+                    if len(results) >= limit:
+                        break
+        except Exception as e:
+            logger.error(f"Kakao 장소 검색 실패: {e}")
+
+    # 여전히 데이터가 없으면 샘플 데이터 반환
     if not results:
         results = [
             {
@@ -120,6 +208,7 @@ async def get_nearby_places(
                 "coordinates": {"latitude": 37.528, "longitude": 126.932},
                 "address": "서울 영등포구 여의동로",
                 "phone": "",
+                "source": "sample"
             },
             {
                 "place_id": "sample-2",
@@ -131,6 +220,7 @@ async def get_nearby_places(
                 "coordinates": {"latitude": 37.560, "longitude": 126.975},
                 "address": "서울 강남구",
                 "phone": "",
+                "source": "sample"
             },
             {
                 "place_id": "sample-3",
@@ -142,6 +232,7 @@ async def get_nearby_places(
                 "coordinates": {"latitude": 37.540, "longitude": 127.000},
                 "address": "서울 강남구",
                 "phone": "",
+                "source": "sample"
             },
         ]
     

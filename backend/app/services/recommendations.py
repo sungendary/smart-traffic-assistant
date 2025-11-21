@@ -1,7 +1,7 @@
 """취향 및 예산 기반 장소 필터링 및 추천 로직"""
 from __future__ import annotations
 
-from typing import Any
+import random
 
 # 예산 범위 정의 (원 단위)
 BUDGET_RANGES = {
@@ -226,11 +226,15 @@ def rank_places_by_score(
             # 예산 초과시 점수 감소
             budget_score = max(0.3, 1.0 - (place_budget - budget_info["max"]) / budget_info["max"])
         
-        # 4. 최종 점수 (가중 평균)
+        # 4. 최종 점수 (가중 평균) + 약간의 랜덤성 (0.0~0.05)
+        # 랜덤성을 추가하여 매번 조금씩 다른 순서를 제공
+        random_factor = random.random() * 0.05
+        
         final_score = (
             pref_score * 0.4 +
             weather_score * 0.35 +
-            budget_score * 0.25
+            budget_score * 0.25 +
+            random_factor
         )
         
         place_copy = {**place}

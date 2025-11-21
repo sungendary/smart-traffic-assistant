@@ -5,7 +5,6 @@ import logging
 from typing import Any
 
 import httpx
-from fastapi import HTTPException, status
 
 from ..core.config import settings
 

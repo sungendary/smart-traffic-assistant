@@ -127,7 +127,7 @@ textarea {
 
 .tag-btn {
   border: 1px solid var(--border);
-  border-radius: 20px;
+  border-radius: 99px;
   padding: 6px 14px;
   background: #fff;
   color: var(--text);
