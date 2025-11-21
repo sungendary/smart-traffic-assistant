@@ -103,11 +103,10 @@ async def get_smart_recommendations(
         "weather": weather_description,
         "budget": budget_label,
         "additional_context": f"추천 장소: {', '.join([p.get('place_name', '') for p in top_places[:5]])}"
-    }
-    
+    }    
     try:
         ai_suggestions = await generate_itinerary_suggestions(llm_payload)
-    except Exception as e:
+    except Exception:
         # AI 실패 시 기본 제안
         ai_suggestions = [
             {

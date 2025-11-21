@@ -1,7 +1,7 @@
 """취향 및 예산 기반 장소 필터링 및 추천 로직"""
 from __future__ import annotations
 
-from typing import Any
+import random
 
 # 예산 범위 정의 (원 단위)
 BUDGET_RANGES = {
@@ -167,8 +167,6 @@ def _estimate_category_budget_range(category: str) -> str:
             return info["range"]
     return "medium"
 
-
-import random
 
 def rank_places_by_score(
     places: list[dict],

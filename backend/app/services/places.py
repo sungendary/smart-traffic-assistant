@@ -75,13 +75,16 @@ async def search_places_via_kakao(
                         cat_name = doc.get("category_name", "").split(">")[-1].strip()
                         if not cat_name:
                             cat_name = doc.get("category_group_name", "기타")
-                            
-                        # 태그 생성
+                              # 태그 생성
                         tags = [cat_name]
-                        if code == "FD6": tags.append("맛집")
-                        elif code == "CE7": tags.append("카페")
-                        elif code == "CT1": tags.append("문화")
-                        elif code == "AT4": tags.append("관광")
+                        if code == "FD6":
+                            tags.append("맛집")
+                        elif code == "CE7":
+                            tags.append("카페")
+                        elif code == "CT1":
+                            tags.append("문화")
+                        elif code == "AT4":
+                            tags.append("관광")
                         
                         place = {
                             "place_id": f"kakao-{doc.get('id')}",
