@@ -83,6 +83,8 @@ jobs:
           python -m pip install --upgrade pip setuptools
           pip install pip-audit bandit  # 보안 감사 도구
           pip install -r backend/requirements.txt
+          # 의존성 충돌 검사
+          pip check || (echo "❌ 의존성 충돌이 발견되었습니다!" && exit 1)
           pip install --no-deps starlette==${{ env.STARLETTE_VERSION }}  # 보안 패치 적용
 
       # Python 의존성 보안 감사
