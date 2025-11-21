@@ -17,14 +17,13 @@ async def get_map_suggestions(
     emotion: str,
     preferences: list[str],
     location_text: str,
-    additional_context: str | None = None,
-    budget: Optional[str] = None,
+    additional_context: str | None = None,    budget: Optional[str] = None,
     date: Optional[date] = None,
 ) -> dict[str, Any]:
     places = await list_places(db, latitude=latitude, longitude=longitude, tags=preferences or None, limit=6)
     if not places:
         places = FALLBACK_PLACES
-    weather_info = "정보 없음"
+    # weather_info = "정보 없음"
     # if date:
     #     weather_info = await get_weather(latitude, longitude, date)
 
