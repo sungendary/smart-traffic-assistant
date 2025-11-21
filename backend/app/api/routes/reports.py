@@ -42,6 +42,7 @@ async def save_monthly_report(
     current_user: UserPublic = Depends(get_current_user),
     db: AsyncIOMotorDatabase = Depends(get_mongo_db),
     report_data: ReportResponse | None = Body(None),
+    name: str | None = Body(None),
 ) -> SavedReport:
     couple = await get_or_create_couple(db, current_user.id)
     couple_id = str(couple["_id"])
@@ -52,6 +53,12 @@ async def save_monthly_report(
     else:
         # 리포트 데이터가 없거나 summary가 없으면 새로 생성
         report_data_dict = await build_monthly_report(db, couple_id, month, include_summary=True)
+    
+    # 이름이 제공되면 추가, 없으면 기본값 사용
+    if name is not None:
+        report_data_dict["name"] = name
+    elif "name" not in report_data_dict:
+        report_data_dict["name"] = f"{month} 리포트"
     
     # 기존 리포트가 있는지 확인
     existing = await db[REPORTS_COL].find_one({
@@ -85,6 +92,8 @@ async def save_monthly_report(
     
     saved_doc["_id"] = str(saved_doc["_id"])
     saved_doc["couple_id"] = str(saved_doc["couple_id"])
+    # id 필드를 명시적으로 추가하여 프론트엔드에서 사용할 수 있도록 함
+    saved_doc["id"] = saved_doc["_id"]
     return SavedReport(**saved_doc)
 
 
@@ -104,6 +113,11 @@ async def get_saved_reports(
     async for doc in cursor:
         doc["_id"] = str(doc["_id"])
         doc["couple_id"] = str(doc["couple_id"])
+        # id 필드를 명시적으로 추가하여 프론트엔드에서 사용할 수 있도록 함
+        doc["id"] = doc["_id"]
+        # name 필드가 없으면 기본값 설정
+        if "name" not in doc or not doc["name"]:
+            doc["name"] = f"{doc.get('month', '')} 리포트"
         reports.append(SavedReport(**doc))
     
     return reports
@@ -131,4 +145,9 @@ async def get_saved_report(
     
     doc["_id"] = str(doc["_id"])
     doc["couple_id"] = str(doc["couple_id"])
+    # id 필드를 명시적으로 추가하여 프론트엔드에서 사용할 수 있도록 함
+    doc["id"] = doc["_id"]
+    # name 필드가 없으면 기본값 설정
+    if "name" not in doc or not doc["name"]:
+        doc["name"] = f"{doc.get('month', '')} 리포트"
     return SavedReport(**doc)
