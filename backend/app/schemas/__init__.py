@@ -5,7 +5,7 @@ from .couples import CouplePreferences, CoupleSummary, InviteResponse, JoinReque
 from .map import MapSuggestionRequest, MapSuggestionResponse
 from .planner import PlanCreate, PlanOut, PlanStop, PlanUpdate
 from .place import Place
-from .reports import ReportResponse
+from .reports import ReportResponse, SavedReport
 from .user import UserCreate, UserLogin, UserPublic
 from .visits import VisitCreate, VisitOut
 
@@ -30,6 +30,7 @@ __all__ = [
     "PlanUpdate",
     "Place",
     "ReportResponse",
+    "SavedReport",
     "UserCreate",
     "UserLogin",
     "UserPublic",

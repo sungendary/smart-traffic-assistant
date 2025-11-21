@@ -324,6 +324,29 @@ textarea:focus {
   background: var(--accent-soft);
 }
 
+.primary-input {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 0.95rem;
+  background: var(--surface);
+  color: var(--text);
+  transition: all 0.2s ease;
+}
+
+.primary-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.report-name-section {
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border);
+}
+
 .pill-list,
 .tip-list,
 .plan-stops {
@@ -473,10 +496,32 @@ textarea:focus {
 }
 
 .report-summary-text {
-  margin: 8px 0 12px;
+  margin: 12px 0 16px;
   font-size: 0.95rem;
-  line-height: 1.6;
+  line-height: 1.9;
   color: var(--text);
+  text-align: justify;
+}
+
+.report-summary-text p {
+  margin: 0 0 1.2em 0;
+  text-indent: 1.2em;
+  line-height: 1.9;
+  padding-left: 0.5em;
+}
+
+.report-summary-text p:first-child {
+  text-indent: 0;
+  padding-left: 0;
+}
+
+.report-summary-text p:last-child {
+  margin-bottom: 0;
+}
+
+.report-summary-text strong {
+  color: var(--accent);
+  font-weight: 600;
 }
 
 .report-childlike {
@@ -495,6 +540,205 @@ textarea:focus {
 
 .report-detail-card {
   min-height: 180px;
+}
+
+/* 리포트 모달 스타일 */
+.report-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  padding: 20px;
+}
+
+.report-modal-overlay.show {
+  opacity: 1;
+}
+
+.report-memo-container {
+  position: relative;
+  background: #fffef7;
+  background-image: 
+    linear-gradient(90deg, rgba(255, 90, 153, 0.03) 0%, transparent 50%),
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 31px,
+      rgba(255, 90, 153, 0.1) 31px,
+      rgba(255, 90, 153, 0.1) 32px
+    );
+  border: 1px solid rgba(255, 90, 153, 0.2);
+  border-radius: 8px;
+  box-shadow: 
+    0 20px 60px rgba(0, 0, 0, 0.3),
+    0 0 0 1px rgba(255, 90, 153, 0.1) inset;
+  padding: 40px 50px;
+  max-width: 700px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  transform: scale(0.95) translateY(20px);
+  transition: transform 0.3s ease;
+  font-family: "Pretendard", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+}
+
+.report-modal-overlay.show .report-memo-container {
+  transform: scale(1) translateY(0);
+}
+
+.report-modal-close {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  width: 36px;
+  height: 36px;
+  border: none;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 50%;
+  font-size: 24px;
+  line-height: 1;
+  color: var(--text);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  z-index: 10;
+}
+
+.report-modal-close:hover {
+  background: var(--accent);
+  color: white;
+  transform: rotate(90deg);
+}
+
+.report-memo-header {
+  margin-bottom: 30px;
+  padding-bottom: 20px;
+  border-bottom: 2px solid rgba(255, 90, 153, 0.15);
+}
+
+.report-memo-title {
+  margin: 0 0 8px 0;
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: var(--accent);
+  letter-spacing: -0.02em;
+}
+
+.report-memo-date {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.report-memo-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 16px;
+  margin-bottom: 30px;
+  padding: 20px;
+  background: rgba(255, 90, 153, 0.05);
+  border-radius: 12px;
+}
+
+.report-memo-stat-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.report-memo-stat-item .stat-label {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.report-memo-stat-item .stat-value {
+  font-size: 1.3rem;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.report-memo-summary {
+  margin-bottom: 30px;
+}
+
+.report-memo-section-title {
+  margin: 0 0 16px 0;
+  font-size: 1.3rem;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.report-memo-summary-text {
+  font-size: 1rem;
+  line-height: 1.9;
+  color: var(--text);
+  text-align: justify;
+}
+
+.report-memo-summary-text p {
+  margin: 0 0 1.2em 0;
+  text-indent: 1.2em;
+  line-height: 1.9;
+  padding-left: 0.5em;
+}
+
+.report-memo-summary-text p:first-child {
+  text-indent: 0;
+  padding-left: 0;
+}
+
+.report-memo-summary-text p:last-child {
+  margin-bottom: 0;
+}
+
+.report-memo-summary-text strong {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.report-memo-footer {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid rgba(255, 90, 153, 0.1);
+}
+
+.report-memo-tags,
+.report-memo-emotions {
+  margin-bottom: 24px;
+}
+
+.report-memo-section-subtitle {
+  margin: 0 0 12px 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+@media (max-width: 720px) {
+  .report-memo-container {
+    padding: 30px 30px;
+    max-width: 95%;
+  }
+  
+  .report-memo-title {
+    font-size: 1.5rem;
+  }
+  
+  .report-memo-stats {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 1080px) {

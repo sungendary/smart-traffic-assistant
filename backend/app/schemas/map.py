@@ -1,5 +1,6 @@
 from datetime import date as Date
-from typing import Optional
+from datetime import date
+from typing import Any, Optional
 
 from pydantic import BaseModel, Field
 
@@ -19,4 +20,4 @@ class MapSuggestionRequest(BaseModel):
 class MapSuggestionResponse(BaseModel):
     summary: str
     places: list[Place]
-    llm_suggestions: list[dict]
+    llm_suggestions: list[dict[str, Any]]
