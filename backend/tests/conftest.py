@@ -102,38 +102,17 @@ def stub_infrastructure(monkeypatch: pytest.MonkeyPatch) -> None:
 def mock_llm_service(monkeypatch: pytest.MonkeyPatch) -> None:
     """
     LLM 서비스를 mock하는 fixture
-    CI 환경에서는 LLM 서비스가 없으므로 mock 응답을 반환합니다.
-    _invoke 함수를 직접 mock하여 chain을 사용하지 않도록 합니다.
+    CI 환경에서는 Gemini API가 없으므로 mock 응답을 반환합니다.
+    _invoke_gemini 함수를 직접 mock하여 API 호출을 우회합니다.
     """
-    # _invoke 함수를 직접 mock하여 chain 사용을 완전히 우회
-    async def mock_invoke(prompt_template: Any, kwargs: dict[str, Any]) -> str:
-        """LLM 호출을 완전히 우회하고 테스트용 JSON 응답 반환"""
-        # ITINERARY_PROMPT인 경우
-        if "emotion" in kwargs or "preferences" in kwargs:
-            return '[{"title": "테스트 데이트 코스", "description": "테스트용 데이트 코스 설명입니다.", "suggested_places": ["테스트 장소 1", "테스트 장소 2", "테스트 장소 3"], "tips": ["테스트 팁 1", "테스트 팁 2"]}]'
+    # _invoke_gemini 함수를 직접 mock하여 Gemini API 호출을 완전히 우회
+    async def mock_invoke_gemini(prompt: str) -> str:
+        """Gemini API 호출을 완전히 우회하고 테스트용 JSON 응답 반환"""
+        # ITINERARY_PROMPT인 경우 (emotion, preferences 등의 키워드 확인)
+        if any(keyword in prompt for keyword in ["감정 상태", "선호 태그", "데이트 플래너"]):
+            return '[{"title": "테스트 데이트 코스", "description": "테스트용 데이트 코스 설명입니다.", "suggested_places": ["테스트 장소 1", "테스트 장소 2", "테스트 장소 3"], "tips": ["테스트 팁 1", "테스트 팁 2"], "estimated_total_cost": 50000}]'
         # REPORT_PROMPT인 경우
-        else:
-            return "테스트용 리포트 요약입니다. 이번 달에는 많은 활동을 하셨네요."
+        else:            return "테스트용 리포트 요약입니다. 이번 달에는 많은 활동을 하셨네요."
     
-    # _invoke 함수를 mock으로 대체 (가장 근본적인 해결)
-    monkeypatch.setattr(llm_service, "_invoke", mock_invoke)
-    
-    # 추가로 generate 함수들도 mock (이중 보호)
-    async def mock_generate_itinerary_suggestions(payload: dict[str, Any]) -> list[dict[str, Any]]:
-        """LLM 호출을 mock하여 테스트용 응답 반환"""
-        return [
-            {
-                "title": "테스트 데이트 코스",
-                "description": "테스트용 데이트 코스 설명입니다.",
-                "suggested_places": ["테스트 장소 1", "테스트 장소 2", "테스트 장소 3"],
-                "tips": ["테스트 팁 1", "테스트 팁 2"],
-            }
-        ]
-
-    async def mock_generate_report_summary(payload: dict[str, Any]) -> str:
-        """LLM 리포트 생성 호출을 mock"""
-        return "테스트용 리포트 요약입니다. 이번 달에는 많은 활동을 하셨네요."
-
-    # LLM 서비스 함수들을 mock으로 대체 (이중 보호)
-    monkeypatch.setattr(llm_service, "generate_itinerary_suggestions", mock_generate_itinerary_suggestions)
-    monkeypatch.setattr(llm_service, "generate_report_summary", mock_generate_report_summary)
+    # _invoke_gemini 함수를 mock으로 대체
+    monkeypatch.setattr(llm_service, "_invoke_gemini", mock_invoke_gemini)
