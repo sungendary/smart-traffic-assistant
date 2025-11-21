@@ -25,6 +25,9 @@ name: Authentication Flow Test
 
 on:
   push:
+    branches:
+      - main
+      - develop_branch
     paths:
       # 인증 테스트 파일만 변경 시 실행
       - "backend/tests/auth/**"
@@ -35,6 +38,9 @@ on:
       - "backend/app/services/users.py"
       - ".github/workflows/auth-flow-test.yml"
   pull_request:
+    branches:
+      - main
+      - develop_branch
     paths:
       # 인증 테스트 파일만 변경 시 실행
       - "backend/tests/auth/**"
@@ -108,6 +114,8 @@ jobs:
         run: |
           python -m pip install --upgrade pip setuptools
           pip install -r backend/requirements.txt
+          # 의존성 충돌 검사
+          pip check || (echo "❌ 의존성 충돌이 발견되었습니다!" && exit 1)
           pip install --no-deps starlette==${{ env.STARLETTE_VERSION }}
           pip install pytest pytest-asyncio httpx asgi-lifespan
 
