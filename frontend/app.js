@@ -9,6 +9,8 @@ const state = {
   bookmarks: [],
   visits: [],
   report: null,
+  savedReports: [],
+  isGeneratingReport: false,
   mapSuggestions: [],
   llmSuggestions: [],
   isRightOpen: true,
@@ -235,6 +237,7 @@ function renderRightPanel() {
       : "토토에게 칭찬 편지를 부탁해보세요.";
     summaryCard.appendChild(summaryBody);
 
+<<<<<<< Updated upstream
     if (state.summaryLoading) {
       const loadingLine = document.createElement("p");
       loadingLine.className = "section-caption";
@@ -260,6 +263,109 @@ function renderRightPanel() {
       summaryBtn.addEventListener("click", () => loadReportSummary(state.report?.month));
     }
     return;
+=======
+  if (state.currentView === "reports") {
+    if (state.isGeneratingReport) {
+      container.innerHTML = `
+        <div class="card" style="text-align: center; padding: 3rem 2rem;">
+          <div style="font-size: 3rem; margin-bottom: 1rem;">✨</div>
+          <h2 class="section-title">리포트 생성 중...</h2>
+          <p class="section-caption">AI가 여러분의 데이터를 분석하고 있습니다.</p>
+          <div style="margin-top: 2rem;">
+            <div style="display: inline-block; width: 40px; height: 40px; border: 4px solid var(--accent-soft); border-top-color: var(--accent); border-radius: 50%; animation: spin 1s linear infinite;"></div>
+          </div>
+        </div>
+      `;
+      // 스피너 애니메이션 추가
+      if (!document.querySelector('#spinner-style')) {
+        const style = document.createElement('style');
+        style.id = 'spinner-style';
+        style.textContent = '@keyframes spin { to { transform: rotate(360deg); } }';
+        document.head.appendChild(style);
+      }
+    } else if (state.report) {
+      const wrapper = document.createElement("div");
+      wrapper.className = "stack";
+      
+      // 리포트 헤더
+      const headerCard = document.createElement("div");
+      headerCard.className = "card";
+      headerCard.style.cssText = "background: linear-gradient(135deg, #ff5a99, #ff80b2); color: white; padding: 2rem;";
+      headerCard.innerHTML = `
+        <h1 style="margin: 0; font-size: 1.5rem; font-weight: 700;">${state.report.month} 월간 리포트</h1>
+        <p style="margin: 0.5rem 0 0 0; opacity: 0.9; font-size: 0.95rem;">커플의 소중한 추억을 정리했습니다</p>
+      `;
+      wrapper.appendChild(headerCard);
+
+      // 리포트 본문
+      const reportCard = document.createElement("div");
+      reportCard.className = "card";
+      reportCard.style.cssText = "padding: 2rem; line-height: 1.8;";
+      
+      // 요약 섹션
+      const summarySection = document.createElement("div");
+      summarySection.style.cssText = "margin-bottom: 2rem; padding-bottom: 2rem; border-bottom: 2px solid var(--border);";
+      summarySection.innerHTML = `
+        <h2 style="margin: 0 0 1rem 0; font-size: 1.2rem; color: var(--accent); display: flex; align-items: center; gap: 0.5rem;">
+          <span>📝</span> 요약
+        </h2>
+        <div style="font-size: 1rem; color: var(--text); white-space: pre-wrap;">${state.report.summary}</div>
+      `;
+      reportCard.appendChild(summarySection);
+
+      // 챌린지 진행도
+      if (state.report.challenge_progress && state.report.challenge_progress.length > 0) {
+        const challengeSection = document.createElement("div");
+        challengeSection.style.cssText = "margin-bottom: 2rem;";
+        challengeSection.innerHTML = `
+          <h2 style="margin: 0 0 1rem 0; font-size: 1.2rem; color: var(--accent); display: flex; align-items: center; gap: 0.5rem;">
+            <span>🏆</span> 챌린지 진행도
+          </h2>
+          <div class="stack">
+            ${state.report.challenge_progress.map(c => {
+              const progress = Math.min((c.current / c.goal) * 100, 100);
+              return `
+                <div style="padding: 1rem; background: var(--surface-muted); border-radius: 12px;">
+                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                    <span style="font-weight: 600;">${c.badge_icon || '🎯'} ${c.title}</span>
+                    <span style="font-size: 0.9rem; color: var(--text-muted);">${c.current}/${c.goal}</span>
+                  </div>
+                  <div style="height: 8px; background: var(--border); border-radius: 4px; overflow: hidden;">
+                    <div style="height: 100%; width: ${progress}%; background: linear-gradient(90deg, #ff5a99, #ff80b2); transition: width 0.3s ease;"></div>
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        `;
+        reportCard.appendChild(challengeSection);
+      }
+
+      // 저장 버튼
+      const saveSection = document.createElement("div");
+      saveSection.style.cssText = "margin-top: 2rem; padding-top: 2rem; border-top: 2px solid var(--border);";
+      saveSection.innerHTML = `
+        <button class="primary-btn" id="save-report-btn" style="width: 100%;">
+          💾 리포트 저장하기
+        </button>
+      `;
+      reportCard.appendChild(saveSection);
+      
+      wrapper.appendChild(reportCard);
+      container.appendChild(wrapper);
+
+      // 저장 버튼 이벤트
+      select("#save-report-btn")?.addEventListener("click", handleSaveReport);
+    } else {
+      container.innerHTML = `
+        <div class="card" style="text-align: center; padding: 3rem 2rem;">
+          <div style="font-size: 3rem; margin-bottom: 1rem;">📊</div>
+          <h2 class="section-title">리포트 준비됨</h2>
+          <p class="section-caption">왼쪽에서 월을 선택하고 "리포트 확인하기" 버튼을 눌러주세요.</p>
+        </div>
+      `;
+    }
+>>>>>>> Stashed changes
   }
 }
 
@@ -532,6 +638,7 @@ function renderReportsView() {
     return;
   }
 
+<<<<<<< Updated upstream
   if (!state.report && !state.reportLoading) {
     state.reportLoading = true;
     loadReport()
@@ -673,12 +780,116 @@ function renderReportsView() {
   formCard.innerHTML = `
     <h2 class="section-title">다른 달 리포트 보기</h2>
     <p class="section-caption">월을 변경하면 커플 선호 · 플래너 감정 목표 · 방문 기록을 다시 수집합니다.</p>
+=======
+  const wrapper = document.createElement("div");
+  wrapper.className = "stack";
+
+  // 통계 카드
+  const statsCard = document.createElement("div");
+  statsCard.className = "card";
+  const month = state.report?.month || new Date().toISOString().slice(0, 7);
+  
+  if (state.report) {
+    const { visit_count, emotion_stats, top_tags, challenge_progress } = state.report;
+    const totalEmotions = Object.values(emotion_stats).reduce((a, b) => a + b, 0);
+    const topEmotion = Object.entries(emotion_stats).sort((a, b) => b[1] - a[1])[0];
+    const completedChallenges = challenge_progress.filter(c => c.current >= c.goal).length;
+    
+    statsCard.innerHTML = `
+      <h2 class="section-title">📊 ${month} 통계</h2>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin: 1rem 0;">
+        <div style="text-align: center; padding: 1rem; background: linear-gradient(135deg, #ff5a99, #ff80b2); border-radius: 12px; color: white;">
+          <div style="font-size: 2rem; font-weight: bold;">${visit_count}</div>
+          <div style="font-size: 0.85rem; opacity: 0.9;">방문 횟수</div>
+        </div>
+        <div style="text-align: center; padding: 1rem; background: linear-gradient(135deg, #667eea, #764ba2); border-radius: 12px; color: white;">
+          <div style="font-size: 2rem; font-weight: bold;">${completedChallenges}</div>
+          <div style="font-size: 0.85rem; opacity: 0.9;">완료 챌린지</div>
+        </div>
+      </div>
+      <div style="margin-top: 1rem;">
+        <h3 style="font-size: 0.95rem; margin-bottom: 0.5rem; color: var(--text-muted);">주요 감정</h3>
+        <div style="font-size: 1.2rem; font-weight: 600; color: var(--accent);">
+          ${topEmotion ? `${topEmotion[0]} (${topEmotion[1]}회)` : '데이터 없음'}
+        </div>
+      </div>
+      <div style="margin-top: 1rem;">
+        <h3 style="font-size: 0.95rem; margin-bottom: 0.5rem; color: var(--text-muted);">인기 태그</h3>
+        <div class="inline-chips">
+          ${top_tags.length > 0 ? top_tags.map(tag => `<span class="inline-chip">${tag}</span>`).join('') : '<span class="section-caption">태그 없음</span>'}
+        </div>
+      </div>
+      <div style="margin-top: 1rem;">
+        <h3 style="font-size: 0.95rem; margin-bottom: 0.5rem; color: var(--text-muted);">감정 분포</h3>
+        <ul class="tip-list">
+          ${Object.entries(emotion_stats).map(([emotion, count]) => {
+            const percentage = totalEmotions > 0 ? Math.round((count / totalEmotions) * 100) : 0;
+            return `<li>${emotion}: ${count}회 (${percentage}%)</li>`;
+          }).join('')}
+        </ul>
+      </div>
+    `;
+  } else {
+    statsCard.innerHTML = `
+      <h2 class="section-title">📊 통계</h2>
+      <p class="section-caption">리포트를 생성하면 통계 데이터를 확인할 수 있습니다.</p>
+    `;
+  }
+  wrapper.appendChild(statsCard);
+
+  // 리포트 생성 폼
+  const formCard = document.createElement("div");
+  formCard.className = "card";
+  formCard.innerHTML = `
+    <h2 class="section-title">리포트 생성</h2>
+>>>>>>> Stashed changes
     <form id="report-form" class="stack">
       <input type="month" name="month" value="${month}" />
-      <button type="submit" class="primary-btn">리포트 확인</button>
+      <button type="submit" class="primary-btn" id="report-submit-btn" ${state.isGeneratingReport ? 'disabled' : ''}>
+        ${state.isGeneratingReport ? '생성 중...' : '리포트 확인하기'}
+      </button>
     </form>
   `;
+<<<<<<< Updated upstream
   sidebar.appendChild(formCard);
+=======
+  wrapper.appendChild(formCard);
+
+  // 저장된 보고서 목록
+  if (state.savedReports.length > 0) {
+    const savedCard = document.createElement("div");
+    savedCard.className = "card";
+    savedCard.innerHTML = `
+      <h2 class="section-title">저장된 보고서</h2>
+      <div class="stack" style="max-height: 300px; overflow-y: auto;">
+        ${state.savedReports.map(report => `
+          <div class="card sub" style="cursor: pointer;" data-report-id="${report.id}">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <div>
+                <h3 style="margin: 0; font-size: 0.95rem;">${report.month} 리포트</h3>
+                <p style="margin: 0.25rem 0 0 0; font-size: 0.85rem; color: var(--text-muted);">
+                  ${new Date(report.created_at).toLocaleDateString('ko-KR')}
+                </p>
+              </div>
+              <span class="inline-chip">${report.visit_count}회 방문</span>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+    wrapper.appendChild(savedCard);
+    
+    // 저장된 보고서 클릭 이벤트
+    selectAll('[data-report-id]').forEach(el => {
+      el.addEventListener('click', () => {
+        const reportId = el.dataset.reportId;
+        loadSavedReport(reportId);
+      });
+    });
+  }
+
+  sidebar.appendChild(wrapper);
+>>>>>>> Stashed changes
   select("#report-form").addEventListener("submit", handleReportForm);
 }
 
@@ -691,6 +902,9 @@ function renderLeftSidebar() {
     renderCoupleView();
   } else if (state.currentView === "reports") {
     renderReportsView();
+    if (state.user) {
+      loadSavedReports().then(() => renderApp());
+    }
   }
 }
 
@@ -991,7 +1205,57 @@ async function handleReportForm(event) {
   event.preventDefault();
   const month = new FormData(event.target).get("month") || new Date().toISOString().slice(0, 7);
   try {
+<<<<<<< Updated upstream
     await loadReport(month);
+=======
+    state.isGeneratingReport = true;
+    renderApp();
+    
+    const data = await fetchJSON(`/api/reports/monthly?month=${month}`);
+    state.report = data;
+    state.isGeneratingReport = false;
+    renderApp();
+  } catch (error) {
+    state.isGeneratingReport = false;
+    renderApp();
+    alert(error.message);
+  }
+}
+
+async function handleSaveReport() {
+  if (!state.report) return;
+  
+  try {
+    const month = state.report.month;
+    const saved = await fetchJSON(`/api/reports/monthly/save?month=${month}`, {
+      method: "POST",
+    });
+    
+    // 저장된 리포트 목록 새로고침
+    await loadSavedReports();
+    renderApp();
+    
+    alert("리포트가 저장되었습니다!");
+  } catch (error) {
+    alert(error.message);
+  }
+}
+
+async function loadSavedReports() {
+  if (!state.user) return;
+  try {
+    state.savedReports = await fetchJSON("/api/reports/saved");
+  } catch (error) {
+    console.error("저장된 리포트를 불러오지 못했습니다.", error);
+    state.savedReports = [];
+  }
+}
+
+async function loadSavedReport(reportId) {
+  if (!state.user) return;
+  try {
+    state.report = await fetchJSON(`/api/reports/saved/${reportId}`);
+>>>>>>> Stashed changes
     renderApp();
   } catch (error) {
     alert(error.message);
@@ -1075,8 +1339,12 @@ async function loadInitialData() {
 
   try {
     await loadCouple();
+<<<<<<< Updated upstream
     await Promise.all([loadPlans(), loadBookmarks(), loadVisits(), loadReport()]);
     renderApp();
+=======
+    await Promise.all([loadPlans(), loadBookmarks(), loadVisits(), loadReport(), loadChallengeStatus(), loadSavedReports()]);
+>>>>>>> Stashed changes
   } catch (error) {
     console.error(error);
   }
