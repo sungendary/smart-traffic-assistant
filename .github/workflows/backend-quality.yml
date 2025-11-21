@@ -38,6 +38,7 @@ on:
       - "backend/app/api/routes/couples.py"
       - "backend/app/api/routes/config.py"
       - "backend/app/api/routes/health.py"
+      - "backend/app/api/routes/reports.py"
       - "backend/app/core/config.py"
       - "backend/app/dependencies.py"
       - "backend/app/main.py"
@@ -46,10 +47,12 @@ on:
       - "backend/app/services/couples.py"
       - "backend/app/services/llm.py"
       - "backend/app/services/places.py"
+      - "backend/app/services/reports.py"
       - "backend/app/services/visits.py"
       # 설정 파일
       - "mypy.ini"
       - "pytest.ini"
+      - "backend/requirements.txt"
       # 검증 스크립트
       - "scripts/validate_experience.py"
       - "scripts/validate_openapi.py"
@@ -67,6 +70,7 @@ on:
       - "backend/app/api/routes/couples.py"
       - "backend/app/api/routes/config.py"
       - "backend/app/api/routes/health.py"
+      - "backend/app/api/routes/reports.py"
       - "backend/app/core/config.py"
       - "backend/app/dependencies.py"
       - "backend/app/main.py"
@@ -75,17 +79,19 @@ on:
       - "backend/app/services/couples.py"
       - "backend/app/services/llm.py"
       - "backend/app/services/places.py"
+      - "backend/app/services/reports.py"
       - "backend/app/services/visits.py"
       # 설정 파일
       - "mypy.ini"
       - "pytest.ini"
+      - "backend/requirements.txt"
       # 검증 스크립트
       - "scripts/validate_experience.py"
       - "scripts/validate_openapi.py"
       # 워크플로우 파일
       - ".github/workflows/backend-quality.yml"
-  workflow_dispatch:  # GitHub Actions UI에서 수동 실행 가능
-  workflow_call:  # 다른 워크플로우에서 호출 가능
+  workflow_dispatch:
+  workflow_call:
 
 # 환경 변수 설정
 env:

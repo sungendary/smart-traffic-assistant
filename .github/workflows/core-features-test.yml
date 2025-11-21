@@ -32,40 +32,36 @@ name: Core Features Test
 on:
   push:
     paths:
-      # 핵심 기능 테스트 파일
+      # 핵심 기능 테스트 파일만 변경 시 실행
       - "backend/tests/core_features/**"
-      # 핵심 기능 API 라우트
+      # 핵심 기능 관련 코드
       - "backend/app/api/routes/map.py"
       - "backend/app/api/routes/planner.py"
       - "backend/app/api/routes/challenges.py"
       - "backend/app/api/routes/visits.py"
       - "backend/app/api/routes/reports.py"
-      # 핵심 기능 서비스
       - "backend/app/services/map.py"
       - "backend/app/services/planner.py"
       - "backend/app/services/challenges.py"
       - "backend/app/services/reports.py"
-      # 워크플로우 파일
       - ".github/workflows/core-features-test.yml"
   pull_request:
     paths:
-      # 핵심 기능 테스트 파일
+      # 핵심 기능 테스트 파일만 변경 시 실행
       - "backend/tests/core_features/**"
-      # 핵심 기능 API 라우트
+      # 핵심 기능 관련 코드
       - "backend/app/api/routes/map.py"
       - "backend/app/api/routes/planner.py"
       - "backend/app/api/routes/challenges.py"
       - "backend/app/api/routes/visits.py"
       - "backend/app/api/routes/reports.py"
-      # 핵심 기능 서비스
       - "backend/app/services/map.py"
       - "backend/app/services/planner.py"
       - "backend/app/services/challenges.py"
       - "backend/app/services/reports.py"
-      # 워크플로우 파일
       - ".github/workflows/core-features-test.yml"
-  workflow_dispatch:  # GitHub Actions UI에서 수동 실행 가능
-  workflow_call:  # 다른 워크플로우에서 호출 가능
+  workflow_dispatch:
+  workflow_call:
 
 env:
   PYTHON_VERSION: "3.11"

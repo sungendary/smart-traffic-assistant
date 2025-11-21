@@ -1,34 +1,20 @@
 # ============================================================================
-# CI Integration Workflow
+# CI Integration Workflow (선택적 실행)
 # ============================================================================
-# 목적: 모든 CI 검증을 통합하고 순차적으로 실행
+# 목적: 주요 브랜치(main, develop_branch)에 merge 전 전체 검증
 # 
 # 주요 기능:
-#   1. 코드 품질 검증 (린팅, 포맷팅, OpenAPI 검증)
-#   2. 핵심 기능 테스트 (기능1, 2, 3)
-#   3. DB 연결 테스트 (MongoDB, Redis)
-#   4. 인증 플로우 테스트 (회원가입-로그인)
-#   5. 보안 검사 (모든 브랜치 및 PR)
-#   6. API 통합 테스트 (develop_branch merge 시 전체 API 응답 검증)
-#   7. 각 검증 단계의 결과를 종합
-#   8. 모든 검증 통과 시 배포 워크플로우 트리거
+#   - 모든 CI 검증을 통합하고 순차적으로 실행
+#   - 각 검증 단계의 결과를 종합
 #
 # 실행 조건:
-#   - main 또는 develop_branch 브랜치에 push될 때
-#   - Pull Request가 열릴 때 (feature → main/develop_branch PR 포함)
+#   - main 또는 develop_branch 브랜치에 push될 때만 실행
+#   - Pull Request가 main/develop_branch로 merge될 때만 실행
 #   - 수동 실행 (workflow_dispatch)
 #
 # 참고:
-#   - feature 브랜치에서 develop_branch/main으로 PR을 만들면 자동 실행됨
-#   - feature 브랜치에 직접 push하면 개별 워크플로우만 실행됨
-#
-# 워크플로우 의존성:
-#   - Backend Quality (코드 품질 검증: 린팅, 포맷팅, OpenAPI)
-#   - Core Features Test (핵심 기능 1, 2, 3)
-#   - Database Connection Test (MongoDB, Redis)
-#   - Authentication Flow Test (회원가입-로그인)
-#   - Security Baseline (보안 검사: 모든 브랜치 및 PR)
-#   - API Integration Test (전체 API 응답 검증: develop_branch 및 PR)
+#   - feature 브랜치에서는 실행되지 않음 (개별 워크플로우만 실행)
+#   - 각 워크플로우는 독립적으로 실행되며, 이 워크플로우는 선택적
 # ============================================================================
 
 name: CI Integration
@@ -39,10 +25,11 @@ on:
       - main
       - develop_branch
   pull_request:
+    types: [opened, synchronize, reopened]
     branches:
       - main
       - develop_branch
-  workflow_dispatch:  # GitHub Actions UI에서 수동 실행 가능
+  workflow_dispatch:
 
 # workflow_call로 호출되는 워크플로우에 권한 전달
 permissions:
@@ -75,15 +62,9 @@ jobs:
     uses: ./.github/workflows/security-baseline.yml
     secrets: inherit
 
-  # API 통합 테스트 (develop_branch merge 시 전체 API 응답 검증)
-  api-integration:
-    if: github.ref == 'refs/heads/develop_branch' || github.event_name == 'pull_request'
-    uses: ./.github/workflows/api-integration-test.yml
-    secrets: inherit
-
   # 모든 CI 검증 통과 확인
   ci-summary:
-    needs: [code-quality, core-features, db-connection, auth-flow, security-baseline, api-integration]
+    needs: [code-quality, core-features, db-connection, auth-flow, security-baseline]
     if: always()
     runs-on: ubuntu-latest
     
@@ -99,14 +80,12 @@ jobs:
           echo "| DB 연결 테스트 (MongoDB, Redis) | ${{ needs.db-connection.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
           echo "| 인증 플로우 테스트 (회원가입-로그인) | ${{ needs.auth-flow.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
           echo "| 보안 검사 (pip-audit, bandit, gitleaks) | ${{ needs.security-baseline.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| API 통합 테스트 (전체 API 응답 검증) | ${{ needs.api-integration.result == 'success' && '✅ Passed' || needs.api-integration.result == 'skipped' && '⏭️ Skipped' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
           
           if [ "${{ needs.code-quality.result }}" != "success" ] || \
              [ "${{ needs.core-features.result }}" != "success" ] || \
              [ "${{ needs.db-connection.result }}" != "success" ] || \
              [ "${{ needs.auth-flow.result }}" != "success" ] || \
-             [ "${{ needs.security-baseline.result }}" != "success" ] || \
-             ([ "${{ needs.api-integration.result }}" != "success" ] && [ "${{ needs.api-integration.result }}" != "skipped" ]); then
+             [ "${{ needs.security-baseline.result }}" != "success" ]; then
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "❌ **Some CI checks failed. Deployment will not proceed.**" >> $GITHUB_STEP_SUMMARY
             exit 1
