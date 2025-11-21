@@ -497,49 +497,8 @@ function renderRightPanel() {
                   <div style="height: 8px; background: var(--border); border-radius: 4px; overflow: hidden;">
                     <div style="height: 100%; width: ${progress}%; background: linear-gradient(90deg, #ff5a99, #ff80b2); transition: width 0.3s ease;"></div>
                   </div>
-      </div>
-=======
-  if (state.currentView === "challenges") {
-    if (!state.user) {
-      container.innerHTML = `<div class="card"><h2 class="section-title">로그인 필요</h2><p class="section-caption">챌린지 기능은 로그인 후 이용할 수 있습니다.</p></div>`;
-      return;
-    }
-    
-    const wrapper = document.createElement("div");
-    wrapper.className = "stack";
-    
-    // 포인트 표시 (좌측)
-    const pointsCard = document.createElement("div");
-    pointsCard.className = "card";
-    const points = state.challengeStatus?.points || 0;
-    pointsCard.innerHTML = `
-      <h2 class="section-title">포인트</h2>
-      <div style="font-size: 3rem; font-weight: bold; text-align: center; margin: 1rem 0;">
-        ${points.toLocaleString()}
-      </div>
-      <p class="section-caption" style="text-align: center;">챌린지 완료 시 포인트를 획득할 수 있습니다.</p>
-    `;
-    wrapper.appendChild(pointsCard);
-    
-    // 배지 표시 (우측)
-    const badgesCard = document.createElement("div");
-    badgesCard.className = "card";
-    const badges = state.challengeStatus?.badges || [];
-    badgesCard.innerHTML = `
-      <h2 class="section-title">커플 배지</h2>
-      <div class="inline-chips" style="justify-content: center; flex-wrap: wrap; gap: 0.5rem; margin-top: 1rem;">
-        ${badges.length > 0 
-          ? badges.map((badge) => `<span class="inline-chip" style="font-size: 2rem; padding: 0.5rem;">${badge}</span>`).join("")
-          : '<p class="section-caption">아직 획득한 배지가 없습니다.</p>'
-        }
-      </div>
-    `;
-    wrapper.appendChild(badgesCard);
-    
-    container.appendChild(wrapper);
-    return;
-  }
-    `;
+                </div>
+              `;
             }).join('')}
           </div>
         `;
