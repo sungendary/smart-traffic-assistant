@@ -27,16 +27,18 @@ on:
     - cron: "0 2 * * 1"
   push:
     paths:
+      # 의존성이나 백엔드 코드 변경 시에만 실행
       - "backend/requirements.txt"
       - "backend/app/**"
       - ".github/workflows/security-baseline.yml"
   pull_request:
     paths:
+      # 의존성이나 백엔드 코드 변경 시에만 실행
       - "backend/requirements.txt"
       - "backend/app/**"
       - ".github/workflows/security-baseline.yml"
-  workflow_dispatch:  # GitHub Actions UI에서 수동 실행 가능
-  workflow_call:  # 다른 워크플로우에서 호출 가능
+  workflow_dispatch:
+  workflow_call:
 
 # 환경 변수 설정
 env:

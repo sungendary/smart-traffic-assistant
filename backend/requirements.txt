@@ -13,9 +13,6 @@ email-validator==2.1.1
 langchain==0.3.26
 langchain-community==0.3.27
 langchain-text-splitters==0.3.9
-<<<<<<< Updated upstream
 httpx==0.25.0
-=======
 google-genai==0.2.2
->>>>>>> Stashed changes
 # Starlette is upgraded separately to 0.49.1 (see CI) to address GHSA advisories while FastAPI metadata is updated upstream.

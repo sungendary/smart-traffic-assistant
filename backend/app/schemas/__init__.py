@@ -5,12 +5,8 @@ from .couples import CouplePreferences, CoupleSummary, InviteResponse, JoinReque
 from .map import MapSuggestionRequest, MapSuggestionResponse
 from .planner import PlanCreate, PlanOut, PlanStop, PlanUpdate
 from .place import Place
-<<<<<<< Updated upstream
-from .reports import ReportResponse
-=======
 from .reports import ReportResponse, SavedReport
 from .rewards import ChallengeStatus
->>>>>>> Stashed changes
 from .user import UserCreate, UserLogin, UserPublic
 from .visits import VisitCreate, VisitOut
 

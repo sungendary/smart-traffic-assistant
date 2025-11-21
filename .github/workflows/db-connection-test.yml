@@ -23,22 +23,20 @@ name: Database Connection Test
 on:
   push:
     paths:
-      # DB 연결 테스트 파일
+      # DB 연결 테스트 파일만 변경 시 실행
       - "backend/tests/db/**"
       # DB 연결 코드
       - "backend/app/db/**"
-      # 워크플로우 파일
       - ".github/workflows/db-connection-test.yml"
   pull_request:
     paths:
-      # DB 연결 테스트 파일
+      # DB 연결 테스트 파일만 변경 시 실행
       - "backend/tests/db/**"
       # DB 연결 코드
       - "backend/app/db/**"
-      # 워크플로우 파일
       - ".github/workflows/db-connection-test.yml"
-  workflow_dispatch:  # GitHub Actions UI에서 수동 실행 가능
-  workflow_call:  # 다른 워크플로우에서 호출 가능
+  workflow_dispatch:
+  workflow_call:
 
 env:
   PYTHON_VERSION: "3.11"

@@ -1,9 +1,6 @@
-<<<<<<< Updated upstream
-=======
 from datetime import datetime
 from typing import Optional
 
->>>>>>> Stashed changes
 from pydantic import BaseModel, Field
 
 from .challenges import ChallengeProgress

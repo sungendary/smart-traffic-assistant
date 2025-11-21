@@ -31,36 +31,19 @@ name: API Integration Test
 
 on:
   push:
-    branches:
-      - develop_branch
     paths:
-      # API 통합 테스트 파일
+      # API 통합 테스트 파일만 변경 시 실행
       - "backend/tests/integration/**"
-      # API 라우트 (주요 엔드포인트)
-      - "backend/app/api/routes/**"
-      # API 서비스
-      - "backend/app/services/**"
-      # API 스키마
-      - "backend/app/schemas/**"
       # 워크플로우 파일
       - ".github/workflows/api-integration-test.yml"
   pull_request:
-    branches:
-      - develop_branch
-      - main
     paths:
-      # API 통합 테스트 파일
+      # API 통합 테스트 파일만 변경 시 실행
       - "backend/tests/integration/**"
-      # API 라우트 (주요 엔드포인트)
-      - "backend/app/api/routes/**"
-      # API 서비스
-      - "backend/app/services/**"
-      # API 스키마
-      - "backend/app/schemas/**"
       # 워크플로우 파일
       - ".github/workflows/api-integration-test.yml"
-  workflow_dispatch:  # GitHub Actions UI에서 수동 실행 가능
-  workflow_call:  # 다른 워크플로우에서 호출 가능
+  workflow_dispatch:
+  workflow_call:
 
 env:
   PYTHON_VERSION: "3.11"

@@ -45,8 +45,8 @@ async def save_monthly_report(
     couple = await get_or_create_couple(db, current_user.id)
     couple_id = str(couple["_id"])
     
-    # 리포트 생성
-    report_data = await build_monthly_report(db, couple_id, month)
+    # 리포트 생성 (summary 포함)
+    report_data = await build_monthly_report(db, couple_id, month, include_summary=True)
     
     # 기존 리포트가 있는지 확인
     existing = await db[REPORTS_COL].find_one({
