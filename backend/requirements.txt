@@ -1,5 +1,6 @@
 fastapi==0.116.0
 uvicorn[standard]==0.32.0
+h11>=0.16.0
 pymongo==4.10.1
 motor==3.7.0
 redis[hiredis]==5.0.1
