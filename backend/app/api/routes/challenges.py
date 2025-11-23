@@ -4,18 +4,30 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 from ...core.auth import get_current_user
 from ...dependencies import get_mongo_db
 from ...schemas import (
+    ChallengeCategoryOut,
     ChallengeProgress,
     ChallengeStatus,
     LocationVerifyRequest,
     LocationVerifyResponse,
     UserPublic,
 )
+from ...services.challenge_categories import list_challenge_categories
 from ...services.challenge_places import get_challenge_place_by_id, list_challenge_places
 from ...services.challenges import get_progress
 from ...services.couples import get_couple, get_or_create_couple
 from ...services.geolocation import calculate_distance, is_within_radius
 
 router = APIRouter()
+
+
+@router.get("/categories", response_model=list[ChallengeCategoryOut])
+async def list_challenge_categories_endpoint(
+    current_user: UserPublic = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_mongo_db),
+) -> list[ChallengeCategoryOut]:
+    """챌린지 카테고리 목록 조회 (일반 사용자용)"""
+    categories = await list_challenge_categories(db, active_only=True)
+    return [ChallengeCategoryOut(**c) for c in categories]
 
 
 @router.get("/", response_model=list[ChallengeProgress])
