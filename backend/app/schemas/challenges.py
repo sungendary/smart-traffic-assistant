@@ -10,3 +10,15 @@ class ChallengeProgress(BaseModel):
     goal: int
     completed: bool
     completed_at: str | None
+
+
+class LocationVerifyRequest(BaseModel):
+    challenge_place_id: str
+    latitude: float
+    longitude: float
+
+
+class LocationVerifyResponse(BaseModel):
+    verified: bool
+    distance_meters: float
+    message: str

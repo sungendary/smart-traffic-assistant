@@ -13,6 +13,7 @@ const state = {
   isGeneratingReport: false,
   mapSuggestions: [],
   llmSuggestions: [],
+  challengeStatus: null,
   isRightOpen: true,
   currentView: "map",
   // 추천 관련 상태
@@ -100,17 +101,58 @@ async function fetchJSON(url, options = {}) {
   return response.json();
 }
 
+// frontend/app.js
+async function initMap() {
+  try {
+    // 1. 백엔드에서 API 키 가져오기
+    const config = await fetchJSON(MAPS_CONFIG_ENDPOINT);
+    
+    // 2. SDK 로드 (수정해주신 loadKakaoMapsSdk 사용)
+    await loadKakaoMapsSdk(config.kakaoMapAppKey);
+    
+    // 3. 지도 생성
+    const container = document.getElementById("map");
+    if (!container) {
+        console.warn("지도 컨테이너(#map)를 찾을 수 없습니다.");
+        return;
+    }
+
+    const options = {
+      center: new window.kakao.maps.LatLng(state.center.latitude, state.center.longitude),
+      level: 3,
+    };
+
+    state.map = new window.kakao.maps.Map(container, options);
+    
+    // 4. 줌 컨트롤 추가 (선택 사항)
+    const zoomControl = new window.kakao.maps.ZoomControl();
+    state.map.addControl(zoomControl, window.kakao.maps.ControlPosition.RIGHT);
+
+    console.log("지도 초기화 완료");
+  } catch (error) {
+    console.error("지도 초기화 실패:", error);
+    setStatus("지도를 불러오지 못했습니다: " + error.message, "error");
+  }
+}
+
 async function loadKakaoMapsSdk(appKey) {
   if (!appKey) throw new Error("Kakao App Key가 필요합니다.");
-  if (window.kakao && window.kakao.maps) return window.kakao.maps;
+  
+  // 이미 로드되어 있고 services 라이브러리까지 있다면 재사용
+  if (window.kakao && window.kakao.maps && window.kakao.maps.services) {
+    return window.kakao.maps;
+  }
+
   await new Promise((resolve, reject) => {
     const script = document.createElement("script");
-    script.src = `https://dapi.kakao.com/v2/maps/sdk.js?autoload=false&appkey=${appKey}`;
+    // 주의: 반드시 숫자 1번 옆에 있는 백틱(`)을 사용해야 합니다!
+    script.src = `https://dapi.kakao.com/v2/maps/sdk.js?autoload=false&appkey=${appKey}&libraries=services`;
     script.async = true;
     script.onload = resolve;
     script.onerror = () => reject(new Error("카카오맵 SDK 로드 실패"));
     document.head.appendChild(script);
   });
+
   return new Promise((resolve) => {
     window.kakao.maps.load(() => resolve(window.kakao.maps));
   });
@@ -133,23 +175,42 @@ function addMarkers(places) {
   });
 }
 
-async function initMap() {
-  try {
-    setStatus("지도 초기화 중...");
-    const { kakaoMapAppKey } = await fetchJSON(MAPS_CONFIG_ENDPOINT);
-    const kakaoMaps = await loadKakaoMapsSdk(kakaoMapAppKey);
-    const container = select("#map");
-    if (!container) throw new Error("지도 컨테이너를 찾을 수 없습니다.");
-    const options = {
-      center: new kakaoMaps.LatLng(state.center.latitude, state.center.longitude),
-      level: 6,
-    };
-    state.map = new kakaoMaps.Map(container, options);
-    setStatus("");
-  } catch (error) {
-    console.error(error);
-    setStatus(error.message, "error");
+/**
+ * Kakao Geocoding API를 사용해 지역명을 좌표로 변환
+ * @param {string} locationName - 변환할 지역명 (예: "강남역", "서울")
+ * @returns {Promise<{lat: number, lon: number, name: string} | null>}
+ */
+// frontend/app.js
+
+/**
+ * [수정됨] Kakao Maps SDK의 Places(키워드 검색) 라이브러리 사용
+ */
+async function geocodeLocation(locationName) {
+  // 라이브러리가 로드되지 않았거나 검색어가 없으면 중단
+  if (!locationName || !window.kakao || !window.kakao.maps || !window.kakao.maps.services) {
+    console.warn("Kakao Maps Services 라이브러리가 로드되지 않았습니다.");
+    return null;
   }
+
+  // 장소 검색 객체 생성
+  const ps = new window.kakao.maps.services.Places();
+
+  return new Promise((resolve) => {
+    ps.keywordSearch(locationName, (data, status) => {
+      if (status === window.kakao.maps.services.Status.OK) {
+        const result = data[0];
+        console.log(`검색 성공: ${result.place_name}`);
+        resolve({
+          lat: parseFloat(result.y),
+          lon: parseFloat(result.x),
+          name: result.place_name
+        });
+      } else {
+        console.warn(`장소 검색 실패: ${locationName}, status: ${status}`);
+        resolve(null);
+      }
+    });
+  });
 }
 
 function updateNav() {
@@ -836,6 +897,95 @@ function renderReportsView() {
   sidebar.appendChild(wrapper);
 }
 
+function renderChallengesView() {
+  const sidebar = select("#left-sidebar");
+  sidebar.innerHTML = "";
+
+  if (!state.user) {
+    sidebar.innerHTML = `<div class="card"><h2 class="section-title">로그인 필요</h2><p class="section-caption">챌린지 기능은 로그인 후 이용할 수 있습니다.</p></div>`;
+    return;
+  }
+
+  const wrapper = document.createElement("div");
+  wrapper.className = "stack";
+
+  // 챌린지 장소 목록
+  const listCard = document.createElement("div");
+  listCard.className = "card";
+  listCard.innerHTML = `<h2 class="section-title">챌린지 장소</h2>`;
+
+  if (!state.challengeStatus) {
+    listCard.innerHTML += `<p class="section-caption">챌린지 상태를 불러오는 중...</p>`;
+    wrapper.appendChild(listCard);
+    sidebar.appendChild(wrapper);
+    return;
+  }
+  
+  if (!state.challengeStatus.challenge_places || state.challengeStatus.challenge_places.length === 0) {
+    listCard.innerHTML += `
+      <p class="section-caption">챌린지 장소가 없습니다.</p>
+      <p class="section-caption" style="font-size: 0.85rem; color: #888;">
+        관리자가 챌린지 장소를 등록해야 합니다.<br/>
+        또는 초기 데이터 삽입 스크립트를 실행해주세요.
+      </p>
+    `;
+  } else {
+    const list = document.createElement("div");
+    list.className = "stack";
+    
+    state.challengeStatus.challenge_places.forEach((place) => {
+      const placeCard = document.createElement("div");
+      placeCard.className = "card sub";
+      
+      let statusBadge = "";
+      let actionButton = "";
+      
+      if (place.review_completed) {
+        statusBadge = `<span class="inline-chip" style="background: #4caf50; color: white;">완료</span>`;
+      } else if (place.location_verified) {
+        statusBadge = `<span class="inline-chip" style="background: #ff9800; color: white;">리뷰 작성 가능</span>`;
+        actionButton = `<button class="primary-btn" data-action="review" data-place-id="${place.id}">리뷰 작성</button>`;
+      } else {
+        statusBadge = `<span class="inline-chip">미인증</span>`;
+        actionButton = `<button class="primary-outline" data-action="verify" data-place-id="${place.id}">위치 인증</button>`;
+      }
+      
+      placeCard.innerHTML = `
+        <header class="card-header">
+          <div>
+            <h3 class="card-title">${place.name}</h3>
+            <p class="subtext">${place.description}</p>
+          </div>
+          ${statusBadge}
+        </header>
+        <div class="pill-list">
+          <span class="inline-chip">${place.badge_reward} 배지</span>
+          <span class="inline-chip">${place.points_reward} 포인트</span>
+        </div>
+        <div style="margin-top: 0.5rem;">
+          ${actionButton}
+        </div>
+      `;
+      
+      list.appendChild(placeCard);
+    });
+    
+    listCard.appendChild(list);
+  }
+
+  wrapper.appendChild(listCard);
+  sidebar.appendChild(wrapper);
+
+  // 이벤트 리스너 등록
+  selectAll('[data-action="verify"]').forEach((btn) => {
+    btn.addEventListener("click", () => handleLocationVerify(btn.dataset.placeId));
+  });
+  
+  selectAll('[data-action="review"]').forEach((btn) => {
+    btn.addEventListener("click", () => handleReviewWrite(btn.dataset.placeId));
+  });
+}
+
 function renderLeftSidebar() {
   if (state.currentView === "map") {
     renderMapView();
@@ -843,6 +993,8 @@ function renderLeftSidebar() {
     renderPlannerView();
   } else if (state.currentView === "couple") {
     renderCoupleView();
+  } else if (state.currentView === "challenges") {
+    renderChallengesView();
   } else if (state.currentView === "reports") {
     renderReportsView();
     if (state.user && !state.savedReportsLoaded && state.accessToken) {
@@ -879,11 +1031,17 @@ function renderApp() {
   }
 }
 
-function switchView(view) {
+async function switchView(view) {
   state.currentView = view;
   if (view !== "reports") {
     state.savedReportsLoaded = false;
   }
+  
+  // 챌린지 뷰로 전환 시 상태 새로고침
+  if (view === "challenges" && state.user) {
+    await loadChallengeStatus();
+  }
+  
   renderApp();
 }
 
@@ -986,12 +1144,22 @@ async function handleSmartRecommendation(event) {
   }
   
   const formData = new FormData(event.target);
+  let locationDesc = formData.get("location_desc") || "";
+  
+  // 지역명이 입력되었으면 확인
+  if (!locationDesc) {
+    alert("지역을 입력해주세요. (예: 강남역, 광교역, 서울)");
+    return;
+  }
+  
+  setStatus(`📍 "${locationDesc}" 위치 검색 중...`, "info");
+  
   const params = new URLSearchParams({
-    lat: state.center.latitude,
+    lat: state.center.latitude,  // 기본값만 전달 (백엔드에서 location_desc로 변환)
     lon: state.center.longitude,
     budget_range: formData.get("budget_range") || "medium",
     emotion: formData.get("emotion") || "",
-    location_desc: formData.get("location_desc") || "서울"
+    location_desc: locationDesc  // 지역명 전달 - 백엔드에서 변환 처리
   });
   
   // 선택된 취향 태그 추가
@@ -1000,7 +1168,7 @@ async function handleSmartRecommendation(event) {
   });
   
   try {
-    setStatus("🔍 스마트 추천 생성 중... (날씨 확인, 장소 분석)", "info");
+    setStatus("🔍 스마트 추천 생성 중... (지역 확인, 날씨 확인, 장소 분석)", "info");
     
     const data = await fetchJSON(`/api/recommendations/recommend?${params.toString()}`, {
       method: "POST"
@@ -1010,8 +1178,23 @@ async function handleSmartRecommendation(event) {
     state.currentWeather = data.weather;
     state.llmSuggestions = data.ai_course_suggestions || [];
     
-    // 지도에 마커 표시
+    // 지도를 추천 위치로 이동 (응답에서 첫 번째 장소 기반)
     if (data.recommended_places && data.recommended_places.length > 0) {
+      const firstPlace = data.recommended_places[0];
+      const kakaoMaps = window.kakao.maps;
+      if (kakaoMaps && state.map && firstPlace.coordinates) {
+        const newCenter = new kakaoMaps.LatLng(
+          firstPlace.coordinates.latitude,
+          firstPlace.coordinates.longitude
+        );
+        state.map.setCenter(newCenter);
+        state.center = {
+          latitude: firstPlace.coordinates.latitude,
+          longitude: firstPlace.coordinates.longitude
+        };
+      }
+      
+      // 지도에 마커 표시
       const placesForMap = data.recommended_places.map(p => ({
         coordinates: p.coordinates,
         name: p.place_name,
@@ -1021,7 +1204,7 @@ async function handleSmartRecommendation(event) {
       addMarkers(placesForMap);
     }
     
-    const summary = `✨ ${data.recommended_places.length}개 장소 추천 완료! (날씨: ${data.weather.description})`;
+    const summary = `✨ ${data.recommended_places.length}개 장소 추천 완료! (지역: ${locationDesc}, 날씨: ${data.weather.description})`;
     setStatus(summary, "success");
     renderApp();
     
@@ -1523,6 +1706,163 @@ async function loadReportSummary(month) {
     }
 }
 
+async function loadChallengeStatus() {
+  if (!state.user) return;
+  try {
+    state.challengeStatus = await fetchJSON("/api/challenges/status");
+    console.log("챌린지 상태 로드 완료:", state.challengeStatus);
+  } catch (error) {
+    console.error("챌린지 상태를 불러오지 못했습니다.", error);
+    state.challengeStatus = { points: 0, badges: [], challenge_places: [] };
+    // 에러가 발생해도 빈 상태로 설정하여 UI가 계속 작동하도록 함
+  }
+}
+
+async function handleLocationVerify(placeId) {
+  if (!navigator.geolocation) {
+    alert("이 브라우저는 위치 서비스를 지원하지 않습니다.");
+    return;
+  }
+  
+  setStatus("위치 확인 중...", "info");
+  
+  navigator.geolocation.getCurrentPosition(
+    async (position) => {
+      const { latitude, longitude } = position.coords;
+      
+      try {
+        const result = await fetchJSON("/api/challenges/verify-location", {
+          method: "POST",
+          body: JSON.stringify({
+            challenge_place_id: placeId,
+            latitude,
+            longitude,
+          }),
+        });
+        
+        if (result.verified) {
+          setStatus(result.message, "success");
+          // 위치 인증 완료 후 챌린지 상태 새로고침
+          await loadChallengeStatus();
+          renderApp();
+          alert("위치 인증이 완료되었습니다! 이제 리뷰를 작성할 수 있습니다.");
+        } else {
+          setStatus(result.message, "error");
+          alert(result.message);
+        }
+      } catch (error) {
+        setStatus(error.message, "error");
+        alert(error.message);
+      }
+    },
+    (error) => {
+      const message = error.code === 1 
+        ? "위치 접근이 거부되었습니다. 브라우저 설정에서 위치 권한을 허용해주세요."
+        : "위치를 확인할 수 없습니다.";
+      setStatus(message, "error");
+      alert(message);
+    },
+    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+  );
+}
+
+async function handleReviewWrite(placeId) {
+  const place = state.challengeStatus?.challenge_places?.find((p) => p.id === placeId);
+  if (!place) {
+    alert("챌린지 장소를 찾을 수 없습니다.");
+    return;
+  }
+  
+  // 리뷰 작성 모달
+  const modal = document.createElement("div");
+  modal.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+  `;
+  
+  const form = document.createElement("form");
+  form.className = "card";
+  form.style.cssText = "max-width: 500px; width: 90%; max-height: 90vh; overflow-y: auto;";
+  form.innerHTML = `
+    <h2 class="section-title">${place.name} 리뷰 작성</h2>
+    <div class="stack">
+      <label>
+        별점 (1-5점)
+        <input type="number" name="rating" min="1" max="5" step="0.5" value="5" required />
+      </label>
+      <label>
+        리뷰
+        <textarea name="memo" rows="5" placeholder="이 장소에 대한 리뷰를 작성해주세요." required></textarea>
+      </label>
+      <label>
+        감정
+        <select name="emotion">
+          <option value="설렘">설렘</option>
+          <option value="힐링">힐링</option>
+          <option value="편안함">편안함</option>
+          <option value="위로">위로</option>
+          <option value="즐거움">즐거움</option>
+        </select>
+      </label>
+      <div style="display: flex; gap: 0.5rem;">
+        <button type="submit" class="primary-btn" style="flex: 1;">제출</button>
+        <button type="button" class="primary-outline" id="cancel-review" style="flex: 1;">취소</button>
+      </div>
+    </div>
+  `;
+  
+  modal.appendChild(form);
+  document.body.appendChild(modal);
+  
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const formData = new FormData(form);
+    
+    try {
+      setStatus("리뷰 작성 중...", "info");
+      
+      await fetchJSON("/api/visits/checkin", {
+        method: "POST",
+        body: JSON.stringify({
+          place_id: placeId,
+          place_name: place.name,
+          challenge_place_id: placeId,
+          location_verified: true,
+          rating: parseFloat(formData.get("rating")),
+          memo: formData.get("memo"),
+          emotion: formData.get("emotion"),
+          tags: [],
+        }),
+      });
+      
+      document.body.removeChild(modal);
+      setStatus("리뷰가 작성되었습니다!", "success");
+      
+      // 챌린지 상태 새로고침
+      await loadChallengeStatus();
+      await loadVisits();
+      renderApp();
+      
+      alert(`리뷰 작성 완료! ${place.points_reward} 포인트와 ${place.badge_reward} 배지를 획득했습니다!`);
+    } catch (error) {
+      setStatus(error.message, "error");
+      alert(error.message);
+    }
+  });
+  
+  select("#cancel-review").addEventListener("click", () => {
+    document.body.removeChild(modal);
+  });
+}
+
 async function loadInitialData() {
   try {
     const user = await fetchJSON(`${AUTH_ENDPOINT}/me`);
@@ -1537,7 +1877,7 @@ async function loadInitialData() {
 
   try {
     await loadCouple();
-    await Promise.all([loadPlans(), loadBookmarks(), loadVisits(), loadReport(), loadSavedReports()]);
+    await Promise.all([loadPlans(), loadBookmarks(), loadVisits(), loadReport(), loadSavedReports(), loadChallengeStatus()]);
     renderApp();
   } catch (error) {
     console.error(error);
