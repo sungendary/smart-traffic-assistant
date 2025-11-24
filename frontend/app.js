@@ -212,32 +212,6 @@ function showPlaceMarker(latitude, longitude, name) {
   }
 }
 
-async function initMap() {
-  try {
-    setStatus("지도 초기화 중...");
-    const { kakaoMapAppKey } = await fetchJSON(MAPS_CONFIG_ENDPOINT);
-    const kakaoMaps = await loadKakaoMapsSdk(kakaoMapAppKey);
-    const container = select("#map");
-    if (!container) throw new Error("지도 컨테이너를 찾을 수 없습니다.");
-    const options = {
-      center: new kakaoMaps.LatLng(state.center.latitude, state.center.longitude),
-      level: 6,
-    };
-    state.map = new kakaoMaps.Map(container, options);
-    setStatus("");
-  } catch (error) {
-    console.error(error);
-    setStatus(error.message, "error");
-/**
- * Kakao Geocoding API를 사용해 지역명을 좌표로 변환
- * @param {string} locationName - 변환할 지역명 (예: "강남역", "서울")
- * @returns {Promise<{lat: number, lon: number, name: string} | null>}
- */
-// frontend/app.js
-
-/**
- * [수정됨] Kakao Maps SDK의 Places(키워드 검색) 라이브러리 사용
- */
 async function geocodeLocation(locationName) {
   // 라이브러리가 로드되지 않았거나 검색어가 없으면 중단
   if (!locationName || !window.kakao || !window.kakao.maps || !window.kakao.maps.services) {
@@ -591,7 +565,8 @@ function renderRightPanel() {
             <div style="background: #f9f9f9; border-radius: 0.5rem; padding: 1.5rem; text-align: center;">
               <p class="section-caption" style="color: #999; margin: 0;">아직 획득한 배지가 없습니다.<br/>챌린지를 완료하여 배지를 획득해보세요!</p>
             </div>
-          `
+          `}
+    `;
     // 리포트가 있는 날짜를 맵으로 저장 (날짜 문자열 -> 리포트 배열)
     const reportsByDate = new Map();
     if (state.savedReports && state.savedReports.length > 0) {
