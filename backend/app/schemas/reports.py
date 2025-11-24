@@ -14,6 +14,7 @@ class ReportResponse(BaseModel):
     challenge_progress: list[ChallengeProgress]
     preferred_tags: list[str] = Field(default_factory=list)
     preferred_emotion_goals: list[str] = Field(default_factory=list)
+    preferred_budget: str = Field(default="medium")
     plan_emotion_goals: list[str] = Field(default_factory=list)
     summary: str
 

@@ -364,110 +364,71 @@ function renderRightPanel() {
     if (summaryBtn) {
       summaryBtn.addEventListener("click", () => loadReportSummary(state.report?.month));
     }
-    return;
-  }
-  
-  if (state.currentView === "reports") {
-    if (state.isGeneratingReport) {
-      container.innerHTML = `
-        <div class="card" style="text-align: center; padding: 3rem 2rem;">
-          <div style="font-size: 3rem; margin-bottom: 1rem;">✨</div>
-          <h2 class="section-title">리포트 생성 중...</h2>
-          <p class="section-caption">AI가 여러분의 데이터를 분석하고 있습니다.</p>
-          <div style="margin-top: 2rem;">
-            <div style="display: inline-block; width: 40px; height: 40px; border: 4px solid var(--accent-soft); border-top-color: var(--accent); border-radius: 50%; animation: spin 1s linear infinite;"></div>
-          </div>
-        </div>
-      `;
-      // 스피너 애니메이션 추가
-      if (!document.querySelector('#spinner-style')) {
-        const style = document.createElement('style');
-        style.id = 'spinner-style';
-        style.textContent = '@keyframes spin { to { transform: rotate(360deg); } }';
-        document.head.appendChild(style);
-      }
-    } else if (state.report) {
-    const wrapper = document.createElement("div");
-    wrapper.className = "stack";
     
-      // 리포트 헤더
-      const headerCard = document.createElement("div");
-      headerCard.className = "card";
-      headerCard.style.cssText = "background: linear-gradient(135deg, #ff5a99, #ff80b2); color: white; padding: 2rem;";
-      headerCard.innerHTML = `
-        <h1 style="margin: 0; font-size: 1.5rem; font-weight: 700;">${state.report.month} 월간 리포트</h1>
-        <p style="margin: 0.5rem 0 0 0; opacity: 0.9; font-size: 0.95rem;">커플의 소중한 추억을 정리했습니다</p>
-      `;
-      wrapper.appendChild(headerCard);
-
-      // 리포트 본문
-      const reportCard = document.createElement("div");
-      reportCard.className = "card";
-      reportCard.style.cssText = "padding: 2rem; line-height: 1.8;";
-      
-      // 요약 섹션
-      const summarySection = document.createElement("div");
-      summarySection.style.cssText = "margin-bottom: 2rem; padding-bottom: 2rem; border-bottom: 2px solid var(--border);";
-      summarySection.innerHTML = `
-        <h2 style="margin: 0 0 1rem 0; font-size: 1.2rem; color: var(--accent); display: flex; align-items: center; gap: 0.5rem;">
-          <span>📝</span> 요약
-        </h2>
-        <div style="font-size: 1rem; color: var(--text); white-space: pre-wrap;">${state.report.summary}</div>
-      `;
-      reportCard.appendChild(summarySection);
-
-      // 챌린지 진행도
-      if (state.report.challenge_progress && state.report.challenge_progress.length > 0) {
-        const challengeSection = document.createElement("div");
-        challengeSection.style.cssText = "margin-bottom: 2rem;";
-        challengeSection.innerHTML = `
-          <h2 style="margin: 0 0 1rem 0; font-size: 1.2rem; color: var(--accent); display: flex; align-items: center; gap: 0.5rem;">
-            <span>🏆</span> 챌린지 진행도
-          </h2>
-          <div class="stack">
-            ${state.report.challenge_progress.map(c => {
-              const progress = Math.min((c.current / c.goal) * 100, 100);
-              return `
-                <div style="padding: 1rem; background: var(--surface-muted); border-radius: 12px;">
-                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-                    <span style="font-weight: 600;">${c.badge_icon || '🎯'} ${c.title}</span>
-                    <span style="font-size: 0.9rem; color: var(--text-muted);">${c.current}/${c.goal}</span>
-                  </div>
-                  <div style="height: 8px; background: var(--border); border-radius: 4px; overflow: hidden;">
-                    <div style="height: 100%; width: ${progress}%; background: linear-gradient(90deg, #ff5a99, #ff80b2); transition: width 0.3s ease;"></div>
-                  </div>
-      </div>
-    `;
-            }).join('')}
-          </div>
-        `;
-        reportCard.appendChild(challengeSection);
-      }
-
-      // 저장 버튼
-      const saveSection = document.createElement("div");
-      saveSection.style.cssText = "margin-top: 2rem; padding-top: 2rem; border-top: 2px solid var(--border);";
-      saveSection.innerHTML = `
-        <button class="primary-btn" id="save-report-btn" style="width: 100%;">
-          💾 리포트 저장하기
+    // 저장된 리포트 섹션을 칭찬편지 아래에 추가
+    const savedReportsCard = document.createElement("div");
+    savedReportsCard.className = "card";
+    savedReportsCard.style.marginTop = "1.5rem";
+    const month = state.report?.month || new Date().toISOString().slice(0, 7);
+    savedReportsCard.innerHTML = `
+      <h2 class="section-title">저장된 리포트</h2>
+      <form id="report-form" class="stack" style="margin-bottom: 1.5rem;">
+        <input type="month" name="month" value="${month}" />
+        <button type="submit" class="primary-btn" id="report-submit-btn" ${state.isGeneratingReport ? 'disabled' : ''}>
+          ${state.isGeneratingReport ? '생성 중...' : '리포트 확인하기'}
         </button>
-      `;
-      reportCard.appendChild(saveSection);
-      
-      wrapper.appendChild(reportCard);
-    container.appendChild(wrapper);
-
-      // 저장 버튼 이벤트
-      select("#save-report-btn")?.addEventListener("click", handleSaveReport);
-    } else {
-      container.innerHTML = `
-        <div class="card" style="text-align: center; padding: 3rem 2rem;">
-          <div style="font-size: 3rem; margin-bottom: 1rem;">📊</div>
-          <h2 class="section-title">리포트 준비됨</h2>
-          <p class="section-caption">왼쪽에서 월을 선택하고 "리포트 확인하기" 버튼을 눌러주세요.</p>
+      </form>
+      ${state.savedReports && state.savedReports.length > 0 ? `
+        <div class="stack" style="max-height: 400px; overflow-y: auto;">
+          ${state.savedReports.map(report => {
+            const reportId = report.id || report._id || '';
+            const reportName = report.name || `${report.month} 리포트`;
+            return `
+            <div class="card sub" style="cursor: pointer; transition: transform 0.2s ease, box-shadow 0.2s ease;" data-report-id="${reportId}">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                  <h3 style="margin: 0; font-size: 0.95rem; font-weight: 600;">${reportName}</h3>
+                  <p style="margin: 0.25rem 0 0 0; font-size: 0.85rem; color: var(--text-muted);">
+                    ${new Date(report.created_at).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })}
+                  </p>
+                </div>
+                <span class="inline-chip">${report.visit_count}회 방문</span>
+              </div>
+            </div>
+          `;
+          }).join('')}
         </div>
+      ` : `
+        <p class="section-caption">아직 저장된 리포트가 없습니다. 리포트를 생성하면 여기에 표시됩니다.</p>
+      `}
+    `;
+    container.appendChild(savedReportsCard);
+    
+    // 호버 효과 스타일 추가
+    if (!document.querySelector('#report-hover-style')) {
+      const style = document.createElement("style");
+      style.id = 'report-hover-style';
+      style.textContent = `
+        .card.sub[data-report-id]:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 4px 12px rgba(255, 90, 153, 0.15);
+          border-color: rgba(255, 90, 153, 0.3);
+        }
       `;
+      document.head.appendChild(style);
     }
+    
+    select("#report-form")?.addEventListener("submit", handleReportForm);
+    
+    // 저장된 리포트 클릭 이벤트
+    selectAll('[data-report-id]').forEach(el => {
+      el.addEventListener('click', () => {
+        const reportId = el.dataset.reportId;
+        loadSavedReport(reportId);
+      });
+    });
+    
+    return;
   }
 }
 
@@ -690,45 +651,54 @@ function renderCoupleView() {
   }
 
   const couple = state.couple;
-  const inviteCard = document.createElement("div");
-  inviteCard.className = "card";
-  inviteCard.innerHTML = `
-    <h2 class="section-title">초대 코드</h2>
-    <p class="section-caption">파트너가 입력할 초대 코드입니다.</p>
-    <div class="inline-chips"><span class="inline-chip">${couple?.invite_code || "생성 중"}</span></div>
-    <button id="regen-code" class="primary-outline">새 코드 생성</button>
-  `;
+  const hasCouple = couple && couple.members && couple.members.length >= 2;
 
-  const joinCard = document.createElement("div");
-  joinCard.className = "card";
-  joinCard.innerHTML = `
-    <h2 class="section-title">코드로 합류</h2>
-    <form id="join-form" class="stack">
-      <input type="text" name="code" placeholder="6자리 코드" maxlength="6" required />
-      <button type="submit" class="primary-btn">합류하기</button>
-    </form>
-  `;
+  // 커플이 없는 경우에만 초대 코드 및 합류 섹션 표시
+  if (!hasCouple) {
+    const inviteCard = document.createElement("div");
+    inviteCard.className = "card";
+    inviteCard.innerHTML = `
+      <h2 class="section-title">초대 코드</h2>
+      <p class="section-caption">파트너가 입력할 초대 코드입니다.</p>
+      <div class="inline-chips"><span class="inline-chip">${couple?.invite_code || "생성 중"}</span></div>
+      <button id="regen-code" class="primary-outline">새 코드 생성</button>
+    `;
 
-  const prefCard = document.createElement("div");
-  prefCard.className = "card";
-  const prefs = couple?.preferences || { tags: [], emotion_goals: [], budget: "medium" };
-  prefCard.innerHTML = `
-    <h2 class="section-title">커플 선호</h2>
-    <form id="pref-form" class="stack">
-      <input type="text" name="tags" placeholder="선호 태그 (쉼표로 구분)" value="${prefs.tags.join(", ")}" />
-      <input type="text" name="emotion_goals" placeholder="감정 목표" value="${prefs.emotion_goals.join(", ")}" />
-      <input type="text" name="budget" placeholder="예산" value="${prefs.budget}" />
-      <button type="submit" class="primary-outline">저장</button>
-    </form>
-  `;
+    const joinCard = document.createElement("div");
+    joinCard.className = "card";
+    joinCard.innerHTML = `
+      <h2 class="section-title">코드로 합류</h2>
+      <form id="join-form" class="stack">
+        <input type="text" name="code" placeholder="6자리 코드" maxlength="6" required />
+        <button type="submit" class="primary-btn">합류하기</button>
+      </form>
+    `;
 
-  sidebar.appendChild(inviteCard);
-  sidebar.appendChild(joinCard);
-  sidebar.appendChild(prefCard);
+    sidebar.appendChild(inviteCard);
+    sidebar.appendChild(joinCard);
 
-  select("#regen-code").addEventListener("click", regenerateInviteCode);
-  select("#join-form").addEventListener("submit", handleJoinCouple);
-  select("#pref-form").addEventListener("submit", handlePreferenceUpdate);
+    select("#regen-code")?.addEventListener("click", regenerateInviteCode);
+    select("#join-form")?.addEventListener("submit", handleJoinCouple);
+  }
+
+  // 커플이 있는 경우에만 커플 선호 등록창 표시
+  if (hasCouple) {
+    const prefCard = document.createElement("div");
+    prefCard.className = "card";
+    const prefs = couple?.preferences || { tags: [], emotion_goals: [], budget: "medium" };
+    prefCard.innerHTML = `
+      <h2 class="section-title">커플 선호</h2>
+      <form id="pref-form" class="stack">
+        <input type="text" name="tags" placeholder="선호 태그 (쉼표로 구분)" value="${prefs.tags.join(", ")}" />
+        <input type="text" name="emotion_goals" placeholder="감정 목표" value="${prefs.emotion_goals.join(", ")}" />
+        <input type="text" name="budget" placeholder="예산" value="${prefs.budget}" />
+        <button type="submit" class="primary-outline">저장</button>
+      </form>
+    `;
+
+    sidebar.appendChild(prefCard);
+    select("#pref-form")?.addEventListener("submit", handlePreferenceUpdate);
+  }
 }
 
 function renderReportsView() {
@@ -771,7 +741,18 @@ function renderReportsView() {
   const topEmotion = entries.length ? entries.sort((a, b) => b[1] - a[1])[0] : null;
   const preferredTags = report.preferred_tags || [];
   const preferredEmotionGoals = report.preferred_emotion_goals || [];
+  const preferredBudget = report.preferred_budget || "medium";
   const planEmotionGoals = report.plan_emotion_goals || [];
+  
+  // 예산 범위를 한글로 변환
+  const budgetLabels = {
+    "free": "무료",
+    "low": "3만원 이하",
+    "medium": "3~8만원",
+    "high": "8~15만원",
+    "premium": "15만원 이상"
+  };
+  const budgetLabel = budgetLabels[preferredBudget] || preferredBudget;
 
   const statsCard = document.createElement("div");
   statsCard.className = "card";
@@ -814,70 +795,45 @@ function renderReportsView() {
         }).join('')}
       </ul>
     </div>
-  `;
-  wrapper.appendChild(statsCard);
-
-  // 리포트 생성 & 저장된 보고서 통합
-  const reportsCard = document.createElement("div");
-  reportsCard.className = "card";
-  reportsCard.innerHTML = `
-    <h2 class="section-title">저장된 리포트</h2>
-    <form id="report-form" class="stack" style="margin-bottom: 1.5rem;">
-      <input type="month" name="month" value="${month}" />
-      <button type="submit" class="primary-btn" id="report-submit-btn" ${state.isGeneratingReport ? 'disabled' : ''}>
-        ${state.isGeneratingReport ? '생성 중...' : '리포트 확인하기'}
-      </button>
-    </form>
-    ${state.savedReports && state.savedReports.length > 0 ? `
-      <div class="stack" style="max-height: 400px; overflow-y: auto;">
-        ${state.savedReports.map(report => {
-          const reportId = report.id || report._id || '';
-          const reportName = report.name || `${report.month} 리포트`;
-          return `
-          <div class="card sub" style="cursor: pointer; transition: transform 0.2s ease, box-shadow 0.2s ease;" data-report-id="${reportId}">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-              <div>
-                <h3 style="margin: 0; font-size: 0.95rem; font-weight: 600;">${reportName}</h3>
-                <p style="margin: 0.25rem 0 0 0; font-size: 0.85rem; color: var(--text-muted);">
-                  ${new Date(report.created_at).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })}
-                </p>
-              </div>
-              <span class="inline-chip">${report.visit_count}회 방문</span>
+    <div style="margin-top: 1.5rem; padding-top: 1.5rem; border-top: 2px solid var(--border);">
+      <h3 style="font-size: 1rem; margin-bottom: 1rem; color: var(--accent); font-weight: 600; display: flex; align-items: center; gap: 0.5rem;">
+        <span>💕</span> 커플 선호 설정
+      </h3>
+      ${preferredTags.length > 0 || preferredEmotionGoals.length > 0 || preferredBudget ? `
+        ${preferredTags.length > 0 ? `
+          <div style="margin-bottom: 1rem;">
+            <div style="font-size: 0.9rem; color: var(--text); margin-bottom: 0.5rem; font-weight: 500;">선호 태그</div>
+            <div class="inline-chips">
+              ${preferredTags.map(tag => `<span class="inline-chip" style="background: var(--accent-soft); color: var(--accent);">${tag}</span>`).join('')}
             </div>
           </div>
-        `;
-        }).join('')}
-      </div>
-    ` : `
-      <p class="section-caption">아직 저장된 리포트가 없습니다. 리포트를 생성하면 여기에 표시됩니다.</p>
-    `}
+        ` : ''}
+        ${preferredEmotionGoals.length > 0 ? `
+          <div style="margin-bottom: 1rem;">
+            <div style="font-size: 0.9rem; color: var(--text); margin-bottom: 0.5rem; font-weight: 500;">감정 목표</div>
+            <div class="inline-chips">
+              ${preferredEmotionGoals.map(goal => `<span class="inline-chip" style="background: var(--accent-soft); color: var(--accent);">${goal}</span>`).join('')}
+            </div>
+          </div>
+        ` : ''}
+        ${preferredBudget ? `
+          <div>
+            <div style="font-size: 0.9rem; color: var(--text); margin-bottom: 0.5rem; font-weight: 500;">예산 범위</div>
+            <div class="inline-chips">
+              <span class="inline-chip" style="background: var(--accent-soft); color: var(--accent);">${budgetLabel}</span>
+            </div>
+          </div>
+        ` : ''}
+      ` : `
+        <div style="padding: 1rem; background: var(--surface-muted); border-radius: 8px; text-align: center;">
+          <p class="section-caption" style="margin: 0;">커플 선호 설정이 없습니다.<br/>커플 페이지에서 선호를 등록해보세요!</p>
+        </div>
+      `}
+    </div>
   `;
-  wrapper.appendChild(reportsCard);
-  
-  // 호버 효과 스타일 추가
-  if (!document.querySelector('#report-hover-style')) {
-    const style = document.createElement("style");
-    style.id = 'report-hover-style';
-    style.textContent = `
-      .card.sub[data-report-id]:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(255, 90, 153, 0.15);
-        border-color: rgba(255, 90, 153, 0.3);
-      }
-    `;
-    document.head.appendChild(style);
-  }
+  wrapper.appendChild(statsCard);
   
   sidebar.appendChild(wrapper);
-  select("#report-form").addEventListener("submit", handleReportForm);
-  
-  // 저장된 리포트 클릭 이벤트
-  selectAll('[data-report-id]').forEach(el => {
-    el.addEventListener('click', () => {
-      const reportId = el.dataset.reportId;
-      loadSavedReport(reportId);
-    });
-  });
 }
 
 function renderLeftSidebar() {
