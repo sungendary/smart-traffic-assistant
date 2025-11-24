@@ -60,35 +60,17 @@ async def save_monthly_report(
     elif "name" not in report_data_dict:
         report_data_dict["name"] = f"{month} 리포트"
     
-    # 기존 리포트가 있는지 확인
-    existing = await db[REPORTS_COL].find_one({
-        "couple_id": ObjectId(couple_id),
-        "month": month,
-    })
-    
     now = datetime.utcnow()
-    if existing:
-        # 업데이트
-        await db[REPORTS_COL].update_one(
-            {"_id": existing["_id"]},
-            {
-                "$set": {
-                    **report_data_dict,
-                    "updated_at": now,
-                }
-            }
-        )
-        saved_doc = await db[REPORTS_COL].find_one({"_id": existing["_id"]})
-    else:
-        # 새로 생성
-        doc = {
-            "couple_id": ObjectId(couple_id),
-            **report_data_dict,
-            "created_at": now,
-            "updated_at": now,
-        }
-        result = await db[REPORTS_COL].insert_one(doc)
-        saved_doc = await db[REPORTS_COL].find_one({"_id": result.inserted_id})
+    # 날짜별로 여러 리포트를 저장할 수 있도록 항상 새로 생성
+    # (같은 날짜에 여러 리포트를 저장하고 싶은 경우를 위해)
+    doc = {
+        "couple_id": ObjectId(couple_id),
+        **report_data_dict,
+        "created_at": now,
+        "updated_at": now,
+    }
+    result = await db[REPORTS_COL].insert_one(doc)
+    saved_doc = await db[REPORTS_COL].find_one({"_id": result.inserted_id})
     
     saved_doc["_id"] = str(saved_doc["_id"])
     saved_doc["couple_id"] = str(saved_doc["couple_id"])
@@ -107,7 +89,7 @@ async def get_saved_reports(
     
     cursor = db[REPORTS_COL].find(
         {"couple_id": ObjectId(couple_id)}
-    ).sort("month", -1)
+    ).sort("created_at", -1)
     
     reports = []
     async for doc in cursor:

@@ -49,12 +49,12 @@ async def build_monthly_report(db: AsyncIOMotorDatabase, couple_id: str, month: 
     top_tags = [tag for tag, _ in tag_counter.most_common(3)]
     emotion_stats = dict(emotion_counter)
     challenges = await get_progress(db, couple_id)
-    challenge_summary = {c["id"]: c["completed"] for c in challenges}
 
     couple_doc = await db[COUPLES_COL].find_one({"_id": ObjectId(couple_id)}) or {}
     preferences = couple_doc.get("preferences", {})
     preferred_tags = preferences.get("tags", [])
     preferred_emotion_goals = preferences.get("emotion_goals", [])
+    preferred_budget = preferences.get("budget", "medium")
 
     plan_cursor = db[PLANS_COL].find({"couple_id": ObjectId(couple_id)})
     plan_emotion_goals_set: set[str] = set()
@@ -72,9 +72,10 @@ async def build_monthly_report(db: AsyncIOMotorDatabase, couple_id: str, month: 
                 "visit_count": visit_count,
                 "top_tags": top_tags,
                 "emotion_stats": emotion_stats,
-                "challenge_progress": challenge_summary,
+                "challenge_progress": challenges,  # 원래 challenges 리스트 사용
                 "couple_preference_tags": preferred_tags,
                 "couple_emotion_goals": preferred_emotion_goals,
+                "couple_budget": preferred_budget,
                 "plan_emotion_goals": plan_emotion_goals,
                 "notes": "; ".join(notes[:5]),
             }
@@ -88,6 +89,7 @@ async def build_monthly_report(db: AsyncIOMotorDatabase, couple_id: str, month: 
         "challenge_progress": challenges,
         "preferred_tags": preferred_tags,
         "preferred_emotion_goals": preferred_emotion_goals,
+        "preferred_budget": preferred_budget,
         "plan_emotion_goals": plan_emotion_goals,
         "summary": summary_text,
     }
