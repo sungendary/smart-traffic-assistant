@@ -44,6 +44,17 @@ function selectAll(selector) {
   return Array.from(document.querySelectorAll(selector));
 }
 
+function hexToRgba(hex, alpha = 0.15) {
+  if (!hex) return `rgba(0, 0, 0, ${alpha})`;
+  const sanitized = hex.replace("#", "");
+  if (sanitized.length !== 6) return `rgba(0, 0, 0, ${alpha})`;
+  const bigint = parseInt(sanitized, 16);
+  const r = (bigint >> 16) & 255;
+  const g = (bigint >> 8) & 255;
+  const b = bigint & 255;
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
 function setStatus(message, type = "info") {
   const overlay = select("#map-overlay");
   if (!overlay) return;
@@ -637,48 +648,89 @@ function renderChallengesView() {
       </p>
     `;
   } else {
-    const list = document.createElement("div");
-    list.className = "stack";
-    
-    state.challengeStatus.challenge_places.forEach((place) => {
-      const placeCard = document.createElement("div");
-      placeCard.className = "card sub";
-      
-      let statusBadge = "";
-      let actionButton = "";
-      
-      if (place.review_completed) {
-        statusBadge = `<span class="inline-chip" style="background: #4caf50; color: white;">완료</span>`;
-      } else if (place.location_verified) {
-        statusBadge = `<span class="inline-chip" style="background: #ff9800; color: white;">리뷰 작성 가능</span>`;
-        actionButton = `<button class="primary-btn" data-action="review" data-place-id="${place.id}">리뷰 작성</button>`;
-      } else {
-        statusBadge = `<span class="inline-chip">미인증</span>`;
-        actionButton = `<button class="primary-outline" data-action="verify" data-place-id="${place.id}">위치 인증</button>`;
+    const categoryOrder = [];
+    const groupedPlaces = state.challengeStatus.challenge_places.reduce((acc, place) => {
+      const categoryKey = place.category_id || "uncategorized";
+      if (!acc[categoryKey]) {
+        acc[categoryKey] = {
+          name: place.category_name || "기타",
+          icon: place.category_icon || "📍",
+          color: place.category_color || "#5f6368",
+          places: [],
+        };
+        categoryOrder.push(categoryKey);
       }
-      
-      placeCard.innerHTML = `
-        <header class="card-header">
-          <div>
-            <h3 class="card-title">${place.name}</h3>
-            <p class="subtext">${place.description}</p>
-          </div>
-          ${statusBadge}
-        </header>
-        <div class="pill-list">
-          <span class="inline-chip">${place.badge_reward} 배지</span>
-          <span class="inline-chip">${place.points_reward} 포인트</span>
-        </div>
-        <div style="margin-top: 0.5rem; display: flex; gap: 0.5rem; flex-wrap: wrap;">
-          ${actionButton}
-          <button class="primary-outline" data-action="show-on-map" data-place-id="${place.id}" data-latitude="${place.latitude}" data-longitude="${place.longitude}" data-place-name="${place.name}">지도에서 보기</button>
-        </div>
-      `;
-      
-      list.appendChild(placeCard);
-    });
+      acc[categoryKey].places.push(place);
+      return acc;
+    }, {});
     
-    listCard.appendChild(list);
+    categoryOrder.forEach((categoryId) => {
+      const category = groupedPlaces[categoryId];
+      const categoryBlock = document.createElement("div");
+      categoryBlock.className = "stack";
+      categoryBlock.style.padding = "0.5rem 0";
+      
+      const categoryTitle = document.createElement("h3");
+      categoryTitle.className = "section-title";
+      const icon = category.icon ? `<span style="margin-right: 0.35rem;">${category.icon}</span>` : "";
+      categoryTitle.innerHTML = `${icon}${category.name}`;
+      categoryTitle.style.display = "flex";
+      categoryTitle.style.alignItems = "center";
+      categoryTitle.style.gap = "0.35rem";
+      categoryTitle.style.marginBottom = "0.35rem";
+      categoryTitle.style.paddingBottom = "0.35rem";
+      categoryTitle.style.borderBottom = `2px solid ${category.color}`;
+      categoryTitle.style.color = category.color;
+      categoryBlock.appendChild(categoryTitle);
+      
+      const list = document.createElement("div");
+      list.className = "stack";
+      
+      category.places.forEach((place) => {
+        const placeCard = document.createElement("div");
+        placeCard.className = "card sub";
+        const accentColor = place.category_color || category.color || "#5f6368";
+        placeCard.style.border = `1px solid ${accentColor}`;
+        placeCard.style.boxShadow = `0 6px 20px ${hexToRgba(accentColor, 0.18)}`;
+        placeCard.style.background = `linear-gradient(135deg, ${hexToRgba(accentColor, 0.08)}, #ffffff)`;
+        
+        let statusBadge = "";
+        let actionButton = "";
+        
+        if (place.review_completed) {
+          statusBadge = `<span class="inline-chip" style="background: #4caf50; color: white;">완료</span>`;
+        } else if (place.location_verified) {
+          statusBadge = `<span class="inline-chip" style="background: #ff9800; color: white;">리뷰 작성 가능</span>`;
+          actionButton = `<button class="primary-btn" data-action="review" data-place-id="${place.id}">리뷰 작성</button>`;
+        } else {
+          statusBadge = `<span class="inline-chip">미인증</span>`;
+          actionButton = `<button class="primary-outline" data-action="verify" data-place-id="${place.id}">위치 인증</button>`;
+        }
+        
+        placeCard.innerHTML = `
+          <header class="card-header">
+            <div>
+              <h3 class="card-title">${place.name}</h3>
+              <p class="subtext">${place.description}</p>
+            </div>
+            ${statusBadge}
+          </header>
+          <div class="pill-list">
+            <span class="inline-chip">${place.badge_reward} 배지</span>
+            <span class="inline-chip">${place.points_reward} 포인트</span>
+          </div>
+          <div style="margin-top: 0.5rem; display: flex; gap: 0.5rem; flex-wrap: wrap;">
+            ${actionButton}
+            <button class="primary-outline" data-action="show-on-map" data-place-id="${place.id}" data-latitude="${place.latitude}" data-longitude="${place.longitude}" data-place-name="${place.name}">지도에서 보기</button>
+          </div>
+        `;
+        
+        list.appendChild(placeCard);
+      });
+      
+      categoryBlock.appendChild(list);
+      listCard.appendChild(categoryBlock);
+    });
   }
 
   wrapper.appendChild(listCard);

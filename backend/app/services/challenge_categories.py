@@ -22,6 +22,7 @@ async def create_challenge_category(db: AsyncIOMotorDatabase, payload: dict) -> 
         "name": payload["name"],
         "description": payload.get("description"),
         "icon": payload.get("icon"),
+        "color": payload.get("color"),
         "active": payload.get("active", True),
         "created_at": now,
         "updated_at": now,

@@ -102,8 +102,10 @@ async def get_challenge_status(
     # 티어 계산
     tier_info = calculate_tier(badge_count)
     
-    # 모든 활성 챌린지 장소 조회
+    # 모든 활성 챌린지 장소와 카테고리 정보 조회
     challenge_places = await list_challenge_places(db, active_only=True)
+    categories = await list_challenge_categories(db, active_only=True)
+    category_map = {category["id"]: category for category in categories}
     
     # 각 챌린지 장소별 완료 여부 확인
     VISITS_COL = "visits"
@@ -127,12 +129,19 @@ async def get_challenge_status(
             "location_verified": True
         })
         
+        category_id = place.get("category_id")
+        category_info = category_map.get(category_id, {})
+        
         status_info = {
             "id": place["id"],
             "name": place["name"],
             "description": place["description"],
             "latitude": place["latitude"],
             "longitude": place["longitude"],
+            "category_id": category_id,
+            "category_name": category_info.get("name", "기타"),
+            "category_icon": category_info.get("icon"),
+            "category_color": category_info.get("color"),
             "badge_reward": place["badge_reward"],
             "points_reward": place["points_reward"],
             "location_verified": bool(location_verified_visit),

@@ -33,26 +33,31 @@ CATEGORIES = [
         "name": "미식 탐험대",
         "description": "수원의 다양한 맛집과 전통 음식을 탐험하는 카테고리",
         "icon": "🍽️",
+        "color": "#FF7043",
     },
     {
         "name": "감석 기록관",
         "description": "추억을 기록하고 감상할 수 있는 문화 예술 공간",
         "icon": "📸",
+        "color": "#AB47BC",
     },
     {
         "name": "에너지 충전소",
         "description": "활동적이고 역동적인 체험과 모험을 즐길 수 있는 장소",
         "icon": "⚡",
+        "color": "#29B6F6",
     },
     {
         "name": "지식 교환소",
         "description": "배움과 지식을 공유하며 함께 성장할 수 있는 공간",
         "icon": "📚",
+        "color": "#66BB6A",
     },
     {
         "name": "힐링 안식처",
         "description": "평온하고 여유로운 시간을 보낼 수 있는 힐링 장소",
         "icon": "🌿",
+        "color": "#FFB74D",
     },
 ]
 
@@ -340,7 +345,22 @@ async def init_challenge_places():
         if existing:
             category_id = str(existing["_id"])
             category_map[category_data["name"]] = category_id
-            print(f"  ✓ {category_data['name']}: 이미 존재 (ID: {category_id})")
+            
+            updates = {}
+            for field in ("description", "icon", "color", "active"):
+                desired_value = category_data.get(field)
+                if desired_value is not None and existing.get(field) != desired_value:
+                    updates[field] = desired_value
+            
+            if updates:
+                updates["updated_at"] = datetime.utcnow()
+                await db["challenge_categories"].update_one(
+                    {"_id": existing["_id"]},
+                    {"$set": updates},
+                )
+                print(f"  ✓ {category_data['name']}: 기존 정보 업데이트 (ID: {category_id})")
+            else:
+                print(f"  ✓ {category_data['name']}: 이미 존재 (ID: {category_id})")
         else:
             # 카테고리 생성
             try:
