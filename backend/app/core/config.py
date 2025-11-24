@@ -24,12 +24,20 @@ class Settings(BaseSettings):
     password_hash_scheme: str = Field(default="argon2")
 
     kakao_map_app_key: str = Field(default="")
+    kakao_rest_api_key: str = Field(default="")
+
+    # Weather API (OpenWeatherMap)
+    openweather_api_key: str = Field(default="")
 
     cors_origins: str = Field(default="http://localhost:5173,http://localhost:3000,http://localhost")
 
     llm_base_url: str = Field(default="http://llm:11434")
     llm_model: str = Field(default="qwen2.5:0.5b")
     llm_temperature: float = Field(default=0.2)
+    
+    # Google Gemini API 설정
+    gemini_api_key: str = Field(default="", description="Google Gemini API 키 (환경 변수: GEMINI_API_KEY)")
+    gemini_model: str = Field(default="gemini-3-pro-preview")
     
     admin_email: str = Field(default="")  # 관리자 이메일 (관리자 API 접근용)
 

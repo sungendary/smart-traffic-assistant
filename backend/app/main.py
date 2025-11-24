@@ -47,8 +47,8 @@ app.mount("/static", StaticFiles(directory=settings.frontend_static_dir), name="
 
 
 @app.get("/")
-async def root() -> dict[str, str]:
+async def root():
     index_path = settings.frontend_static_dir / "index.html"
     if not index_path.exists():  # pragma: no cover
         return {"message": "Smart Relationship Navigator API"}
-    return FileResponse(index_path)
+    return FileResponse(index_path, media_type="text/html; charset=utf-8")
