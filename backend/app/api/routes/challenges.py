@@ -14,7 +14,7 @@ from ...schemas import (
 from ...services.challenge_categories import list_challenge_categories
 from ...services.challenge_places import get_challenge_place_by_id, list_challenge_places
 from ...services.challenges import get_progress
-from ...services.couples import get_couple, get_or_create_couple
+from ...services.couples import calculate_tier, get_couple, get_or_create_couple
 from ...services.geolocation import calculate_distance, is_within_radius
 
 router = APIRouter()
@@ -97,6 +97,10 @@ async def get_challenge_status(
     couple_doc = await get_couple(db, couple_id)
     points = couple_doc.get("points", 0) if couple_doc else 0
     badges = couple_doc.get("badges", []) if couple_doc else []
+    badge_count = len(badges)
+    
+    # 티어 계산
+    tier_info = calculate_tier(badge_count)
     
     # 모든 활성 챌린지 장소 조회
     challenge_places = await list_challenge_places(db, active_only=True)
@@ -137,5 +141,9 @@ async def get_challenge_status(
     return ChallengeStatus(
         points=points,
         badges=badges,
-        challenge_places=challenge_statuses
+        challenge_places=challenge_statuses,
+        tier=tier_info["tier"],
+        tier_name=tier_info["tier_name"],
+        badge_count=badge_count,
+        next_tier_badges_needed=tier_info["next_tier_badges_needed"],
     )

@@ -18,6 +18,57 @@ def _generate_code() -> str:
     return "".join(secrets.choice(CODE_ALPHABET) for _ in range(6))
 
 
+def calculate_tier(badge_count: int) -> dict[str, int | str | None]:
+    """
+    배지 개수에 따라 티어를 계산합니다.
+    
+    Args:
+        badge_count: 커플이 획득한 배지 개수
+    
+    Returns:
+        티어 정보 딕셔너리:
+        - tier: 티어 번호 (1-5)
+        - tier_name: 티어 이름
+        - next_tier_badges_needed: 다음 티어까지 필요한 배지 개수 (마지막 티어면 None)
+    """
+    if badge_count == 0:
+        return {
+            "tier": 1,
+            "tier_name": "새싹 커플",
+            "next_tier_badges_needed": 1,
+        }
+    elif 1 <= badge_count <= 4:
+        return {
+            "tier": 1,
+            "tier_name": "새싹 커플",
+            "next_tier_badges_needed": 5 - badge_count,
+        }
+    elif 5 <= badge_count <= 9:
+        return {
+            "tier": 2,
+            "tier_name": "꽁냥꽁냥 커플",
+            "next_tier_badges_needed": 10 - badge_count,
+        }
+    elif 10 <= badge_count <= 14:
+        return {
+            "tier": 3,
+            "tier_name": "척척 콤비",
+            "next_tier_badges_needed": 15 - badge_count,
+        }
+    elif 15 <= badge_count <= 19:
+        return {
+            "tier": 4,
+            "tier_name": "데이트 장인",
+            "next_tier_badges_needed": 20 - badge_count,
+        }
+    else:  # 20개 이상
+        return {
+            "tier": 5,
+            "tier_name": "전설의 커플",
+            "next_tier_badges_needed": None,
+        }
+
+
 async def ensure_user(db: AsyncIOMotorDatabase, user_id: str) -> dict:
     try:
         obj_id = ObjectId(user_id)

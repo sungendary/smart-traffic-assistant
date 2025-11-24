@@ -12,18 +12,24 @@ from ...schemas import (
     UserPublic,
 )
 from ...services import users as user_service
-from ...services.couples import get_or_create_couple, join_couple_by_code, regenerate_invite_code, update_preferences
+from ...services.couples import calculate_tier, get_or_create_couple, join_couple_by_code, regenerate_invite_code, update_preferences
 
 router = APIRouter()
 
 
 def _serialize_couple(couple: dict, members: list[UserPublic]) -> CoupleSummary:
     prefs = couple.get("preferences", {})
+    badges = couple.get("badges", [])
+    badge_count = len(badges)
+    tier_info = calculate_tier(badge_count)
     return CoupleSummary(
         id=str(couple["_id"]),
         invite_code=couple.get("invite_code", ""),
         members=members,
         preferences=CouplePreferences(**prefs),
+        tier=tier_info["tier"],
+        tier_name=tier_info["tier_name"],
+        badge_count=badge_count,
     )
 
 
