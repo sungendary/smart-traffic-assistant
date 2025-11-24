@@ -131,6 +131,8 @@ async def get_challenge_status(
             "id": place["id"],
             "name": place["name"],
             "description": place["description"],
+            "latitude": place["latitude"],
+            "longitude": place["longitude"],
             "badge_reward": place["badge_reward"],
             "points_reward": place["points_reward"],
             "location_verified": bool(location_verified_visit),
