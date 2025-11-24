@@ -24,6 +24,9 @@ const state = {
   reportLoading: false,
   summaryLoading: false,
   savedReportsLoaded: false,
+  calendarMonth: null, // 달력 표시 월 (년 * 12 + 월)
+  savingReportName: false, // 리포트 이름 저장 중 상태
+  reportNameSaveStatus: null, // 리포트 이름 저장 상태: 'success' | 'error' | null
 };
 
 function handleLogout() {
@@ -406,8 +409,28 @@ function renderRightPanel() {
       const saveNameBtn = document.createElement("button");
       saveNameBtn.id = "save-report-name-btn";
       saveNameBtn.className = "primary-btn";
-      saveNameBtn.textContent = "이름 저장";
       saveNameBtn.style.width = "100%";
+      
+      // 저장 상태에 따라 버튼 스타일 설정
+      if (state.savingReportName) {
+        saveNameBtn.textContent = "저장 중...";
+        saveNameBtn.disabled = true;
+      } else if (state.reportNameSaveStatus === 'success') {
+        saveNameBtn.textContent = "✓ 저장됨";
+        saveNameBtn.style.background = "var(--accent)";
+      } else if (state.reportNameSaveStatus === 'error') {
+        saveNameBtn.textContent = "저장 실패";
+        saveNameBtn.style.background = "#ff4444";
+      } else {
+        saveNameBtn.textContent = "이름 저장";
+      }
+      
+      // 입력 필드 스타일 설정
+      if (state.reportNameSaveStatus === 'success') {
+        nameInput.style.borderColor = "var(--accent)";
+      } else if (state.reportNameSaveStatus === 'error') {
+        nameInput.style.borderColor = "#ff4444";
+      }
       
       nameSection.appendChild(nameLabel);
       nameSection.appendChild(nameInput);
@@ -415,9 +438,9 @@ function renderRightPanel() {
       summaryCard.appendChild(nameSection);
       
       // 이름 저장 버튼 이벤트
-      saveNameBtn.addEventListener("click", () => {
+      saveNameBtn.addEventListener("click", async () => {
         const reportName = nameInput.value.trim() || `${state.report.month || new Date().toISOString().slice(0, 7)} 리포트`;
-        saveReportWithName(state.report.month, reportName);
+        await saveReportWithName(state.report.month, reportName);
       });
     }
     container.appendChild(summaryCard);
@@ -426,66 +449,140 @@ function renderRightPanel() {
       summaryBtn.addEventListener("click", () => loadReportSummary(state.report?.month));
     }
     
-    // 저장된 리포트 섹션을 칭찬편지 아래에 추가
+    // 저장된 리포트 섹션을 칭찬편지 아래에 추가 (달력 형태)
     const savedReportsCard = document.createElement("div");
     savedReportsCard.className = "card";
     savedReportsCard.style.marginTop = "1.5rem";
-    const month = state.report?.month || new Date().toISOString().slice(0, 7);
-    savedReportsCard.innerHTML = `
+    
+    // 리포트가 있는 날짜를 맵으로 저장 (날짜 문자열 -> 리포트 배열)
+    const reportsByDate = new Map();
+    if (state.savedReports && state.savedReports.length > 0) {
+      state.savedReports.forEach(report => {
+        const date = new Date(report.created_at);
+        const dateKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+        if (!reportsByDate.has(dateKey)) {
+          reportsByDate.set(dateKey, []);
+        }
+        reportsByDate.get(dateKey).push(report);
+      });
+    }
+    
+    // 현재 달력 표시 월 (기본값: 현재 월)
+    const currentDate = new Date();
+    if (!state.calendarMonth) {
+      state.calendarMonth = currentDate.getFullYear() * 12 + currentDate.getMonth();
+    }
+    const calendarYear = Math.floor(state.calendarMonth / 12);
+    const calendarMonth = state.calendarMonth % 12;
+    
+    // 달력 생성
+    const firstDay = new Date(calendarYear, calendarMonth, 1);
+    const lastDay = new Date(calendarYear, calendarMonth + 1, 0);
+    const daysInMonth = lastDay.getDate();
+    const startingDayOfWeek = firstDay.getDay();
+    
+    let calendarHTML = `
       <h2 class="section-title">저장된 리포트</h2>
-      <form id="report-form" class="stack" style="margin-bottom: 1.5rem;">
-        <input type="month" name="month" value="${month}" />
-        <button type="submit" class="primary-btn" id="report-submit-btn" ${state.isGeneratingReport ? 'disabled' : ''}>
-          ${state.isGeneratingReport ? '생성 중...' : '리포트 확인하기'}
-        </button>
-      </form>
-      ${state.savedReports && state.savedReports.length > 0 ? `
-        <div class="stack" style="max-height: 400px; overflow-y: auto;">
-          ${state.savedReports.map(report => {
-            const reportId = report.id || report._id || '';
-            const reportName = report.name || `${report.month} 리포트`;
+      <div style="margin-bottom: 1rem;">
+        <form id="report-form" class="stack" style="margin-bottom: 1rem;">
+          <input type="month" name="month" value="${state.report?.month || new Date().toISOString().slice(0, 7)}" />
+          <button type="submit" class="primary-btn" id="report-submit-btn" ${state.isGeneratingReport ? 'disabled' : ''}>
+            ${state.isGeneratingReport ? '생성 중...' : '리포트 확인하기'}
+          </button>
+        </form>
+      </div>
+      <div class="calendar-container">
+        <div class="calendar-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+          <button class="calendar-nav-btn" id="calendar-prev" style="background: none; border: none; font-size: 1.2rem; cursor: pointer; color: var(--accent); padding: 0.5rem;">‹</button>
+          <h3 style="margin: 0; font-size: 1.1rem; font-weight: 600;">${calendarYear}년 ${calendarMonth + 1}월</h3>
+          <button class="calendar-nav-btn" id="calendar-next" style="background: none; border: none; font-size: 1.2rem; cursor: pointer; color: var(--accent); padding: 0.5rem;">›</button>
+        </div>
+        <div class="calendar-grid" style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 0.25rem;">
+          ${['일', '월', '화', '수', '목', '금', '토'].map(day => `
+            <div style="text-align: center; font-size: 0.85rem; font-weight: 600; color: var(--text-muted); padding: 0.5rem;">${day}</div>
+          `).join('')}
+          ${Array(startingDayOfWeek).fill(null).map(() => `
+            <div style="aspect-ratio: 1; padding: 0.25rem;"></div>
+          `).join('')}
+          ${Array.from({ length: daysInMonth }, (_, i) => {
+            const day = i + 1;
+            const dateKey = `${calendarYear}-${String(calendarMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+            const hasReport = reportsByDate.has(dateKey);
+            const isToday = currentDate.getFullYear() === calendarYear && 
+                           currentDate.getMonth() === calendarMonth && 
+                           currentDate.getDate() === day;
+            const reports = hasReport ? reportsByDate.get(dateKey) : [];
+            
             return `
-            <div class="card sub" style="cursor: pointer; transition: transform 0.2s ease, box-shadow 0.2s ease;" data-report-id="${reportId}">
-              <div style="display: flex; justify-content: space-between; align-items: center;">
-                <div>
-                  <h3 style="margin: 0; font-size: 0.95rem; font-weight: 600;">${reportName}</h3>
-                  <p style="margin: 0.25rem 0 0 0; font-size: 0.85rem; color: var(--text-muted);">
-                    ${new Date(report.created_at).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })}
-                  </p>
-                </div>
-                <span class="inline-chip">${report.visit_count}회 방문</span>
+              <div 
+                class="calendar-day ${hasReport ? 'has-report' : ''} ${isToday ? 'today' : ''}" 
+                data-date="${dateKey}"
+                style="
+                  aspect-ratio: 1; 
+                  display: flex; 
+                  align-items: center; 
+                  justify-content: center; 
+                  cursor: ${hasReport ? 'pointer' : 'default'};
+                  border-radius: 8px;
+                  position: relative;
+                  ${hasReport ? 'background: var(--accent-soft); color: var(--accent); font-weight: 600;' : ''}
+                  ${isToday ? 'border: 2px solid var(--accent);' : ''}
+                  transition: all 0.2s ease;
+                "
+              >
+                ${day}
+                ${hasReport ? `<span style="position: absolute; bottom: 2px; width: 4px; height: 4px; background: var(--accent); border-radius: 50%;"></span>` : ''}
               </div>
-            </div>
-          `;
+            `;
           }).join('')}
         </div>
-      ` : `
-        <p class="section-caption">아직 저장된 리포트가 없습니다. 리포트를 생성하면 여기에 표시됩니다.</p>
-      `}
+      </div>
     `;
+    
+    savedReportsCard.innerHTML = calendarHTML;
     container.appendChild(savedReportsCard);
     
-    // 호버 효과 스타일 추가
-    if (!document.querySelector('#report-hover-style')) {
+    // 달력 스타일 추가
+    if (!document.querySelector('#calendar-style')) {
       const style = document.createElement("style");
-      style.id = 'report-hover-style';
+      style.id = 'calendar-style';
       style.textContent = `
-        .card.sub[data-report-id]:hover {
-          transform: translateY(-2px);
-          box-shadow: 0 4px 12px rgba(255, 90, 153, 0.15);
-          border-color: rgba(255, 90, 153, 0.3);
+        .calendar-day.has-report:hover {
+          background: var(--accent) !important;
+          color: white !important;
+          transform: scale(1.1);
+        }
+        .calendar-day.today {
+          font-weight: 700;
         }
       `;
       document.head.appendChild(style);
     }
     
+    // 리포트 확인 폼 이벤트
     select("#report-form")?.addEventListener("submit", handleReportForm);
     
-    // 저장된 리포트 클릭 이벤트
-    selectAll('[data-report-id]').forEach(el => {
+    // 달력 네비게이션 이벤트
+    select("#calendar-prev")?.addEventListener("click", () => {
+      state.calendarMonth = state.calendarMonth - 1;
+      renderRightPanel();
+    });
+    
+    select("#calendar-next")?.addEventListener("click", () => {
+      state.calendarMonth = state.calendarMonth + 1;
+      renderRightPanel();
+    });
+    
+    // 날짜 클릭 이벤트
+    selectAll('.calendar-day.has-report').forEach(el => {
       el.addEventListener('click', () => {
-        const reportId = el.dataset.reportId;
-        loadSavedReport(reportId);
+        const dateKey = el.dataset.date;
+        const reports = reportsByDate.get(dateKey);
+        if (reports && reports.length > 0) {
+          // 가장 최근 리포트를 표시 (같은 날짜에 여러 리포트가 있을 경우)
+          const latestReport = reports.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0];
+          loadSavedReport(latestReport.id || latestReport._id);
+        }
       });
     });
     
@@ -1375,27 +1472,16 @@ async function handleSaveReport() {
 async function saveReportWithName(month, name) {
   if (!state.report) return;
   
-  // 즉시 UI 업데이트 (낙관적 업데이트)
+  // 원본 이름 저장 (롤백용)
   const originalName = state.report.name;
-  state.report.name = name;
   
-  // 저장된 리포트 목록에서도 즉시 업데이트
-  if (state.savedReports) {
-    const reportIndex = state.savedReports.findIndex(r => (r.id || r._id) === (state.report.id || state.report._id));
-    if (reportIndex !== -1) {
-      state.savedReports[reportIndex].name = name;
-    }
-  }
-  
-  // 우측 사이드바 즉시 업데이트
+  // 저장 중 상태 설정
+  state.savingReportName = true;
+  state.reportNameSaveStatus = null;
   renderRightPanel();
-  // 좌측 사이드바도 즉시 업데이트
-  if (state.currentView === "reports") {
-    renderReportsView();
-  }
   
   try {
-    // 백그라운드에서 저장 (에러 발생 시 롤백)
+    // 리포트 데이터 저장
     const saved = await fetchJSON(`/api/reports/monthly/save?month=${month}`, {
       method: "POST",
       body: JSON.stringify({
@@ -1407,34 +1493,52 @@ async function saveReportWithName(month, name) {
       },
     });
     
-    // 저장 성공 시 상태 동기화
+    // 저장 성공 시 상태 업데이트
+    state.report.name = name;
     if (saved.id || saved._id) {
       state.report.id = saved.id || saved._id;
     }
     
-    // 성공 메시지 (alert 대신 더 빠른 피드백)
-    const nameInput = select("#report-name-input");
-    if (nameInput) {
-      const originalText = nameInput.value;
-      nameInput.style.borderColor = "var(--accent)";
-      setTimeout(() => {
-        nameInput.style.borderColor = "";
-      }, 1000);
-    }
-  } catch (error) {
-    // 에러 발생 시 롤백
-    state.report.name = originalName;
-    if (state.savedReports) {
-      const reportIndex = state.savedReports.findIndex(r => (r.id || r._id) === (state.report.id || state.report._id));
-      if (reportIndex !== -1) {
-        state.savedReports[reportIndex].name = originalName;
-      }
-    }
+    // 저장된 리포트 목록 새로고침
+    await loadSavedReports();
+    
+    // 성공 상태 설정
+    state.savingReportName = false;
+    state.reportNameSaveStatus = 'success';
+    
+    // UI 업데이트
     renderRightPanel();
     if (state.currentView === "reports") {
       renderReportsView();
     }
-    alert(`저장 실패: ${error.message}`);
+    
+    // 2초 후 원래 상태로 복귀
+    setTimeout(() => {
+      state.reportNameSaveStatus = null;
+      renderRightPanel();
+    }, 2000);
+    
+  } catch (error) {
+    // 에러 발생 시 롤백
+    state.report.name = originalName;
+    
+    // 에러 상태 설정
+    state.savingReportName = false;
+    state.reportNameSaveStatus = 'error';
+    
+    // UI 업데이트
+    renderRightPanel();
+    if (state.currentView === "reports") {
+      renderReportsView();
+    }
+    
+    // 2초 후 원래 상태로 복귀
+    setTimeout(() => {
+      state.reportNameSaveStatus = null;
+      renderRightPanel();
+    }, 2000);
+    
+    console.error("리포트 이름 저장 실패:", error);
   }
 }
 
