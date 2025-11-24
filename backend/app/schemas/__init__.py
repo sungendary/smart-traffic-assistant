@@ -1,5 +1,10 @@
 from .auth import LoginResponse, LogoutResponse, RefreshResponse, SignupResponse
 from .bookmarks import BookmarkCreate, BookmarkOut
+from .challenge_categories import (
+    ChallengeCategoryCreate,
+    ChallengeCategoryOut,
+    ChallengeCategoryUpdate,
+)
 from .challenge_places import ChallengePlaceCreate, ChallengePlaceOut, ChallengePlaceUpdate
 from .challenges import ChallengeProgress, LocationVerifyRequest, LocationVerifyResponse
 from .couples import CouplePreferences, CoupleSummary, InviteResponse, JoinRequest, PreferenceUpdate
@@ -18,6 +23,9 @@ __all__ = [
     "SignupResponse",
     "BookmarkCreate",
     "BookmarkOut",
+    "ChallengeCategoryCreate",
+    "ChallengeCategoryOut",
+    "ChallengeCategoryUpdate",
     "ChallengePlaceCreate",
     "ChallengePlaceOut",
     "ChallengePlaceUpdate",

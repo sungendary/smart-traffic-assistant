@@ -59,6 +59,17 @@ function selectAll(selector) {
   return Array.from(document.querySelectorAll(selector));
 }
 
+function hexToRgba(hex, alpha = 0.15) {
+  if (!hex) return `rgba(0, 0, 0, ${alpha})`;
+  const sanitized = hex.replace("#", "");
+  if (sanitized.length !== 6) return `rgba(0, 0, 0, ${alpha})`;
+  const bigint = parseInt(sanitized, 16);
+  const r = (bigint >> 16) & 255;
+  const g = (bigint >> 8) & 255;
+  const b = bigint & 255;
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
 function setStatus(message, type = "info") {
   const overlay = select("#map-overlay");
   if (!overlay) return;
@@ -178,6 +189,45 @@ function addMarkers(places) {
   });
 }
 
+function showPlaceMarker(latitude, longitude, name) {
+  if (!state.map) {
+    alert("지도가 아직 초기화되지 않았습니다.");
+    return;
+  }
+  
+  clearMarkers();
+  
+  const latlng = new window.kakao.maps.LatLng(latitude, longitude);
+  const marker = new window.kakao.maps.Marker({ position: latlng });
+  marker.setMap(state.map);
+  state.markers.push(marker);
+  
+  // 지도 중심을 해당 위치로 이동
+  state.map.setCenter(latlng);
+  // 지도 레벨 조정 (더 가까이 보이도록)
+  state.map.setLevel(3);
+  
+  if (name) {
+    setStatus(`${name} 위치를 지도에 표시했습니다.`, "success");
+  }
+}
+
+async function initMap() {
+  try {
+    setStatus("지도 초기화 중...");
+    const { kakaoMapAppKey } = await fetchJSON(MAPS_CONFIG_ENDPOINT);
+    const kakaoMaps = await loadKakaoMapsSdk(kakaoMapAppKey);
+    const container = select("#map");
+    if (!container) throw new Error("지도 컨테이너를 찾을 수 없습니다.");
+    const options = {
+      center: new kakaoMaps.LatLng(state.center.latitude, state.center.longitude),
+      level: 6,
+    };
+    state.map = new kakaoMaps.Map(container, options);
+    setStatus("");
+  } catch (error) {
+    console.error(error);
+    setStatus(error.message, "error");
 /**
  * Kakao Geocoding API를 사용해 지역명을 좌표로 변환
  * @param {string} locationName - 변환할 지역명 (예: "강남역", "서울")
@@ -454,6 +504,94 @@ function renderRightPanel() {
     savedReportsCard.className = "card";
     savedReportsCard.style.marginTop = "1.5rem";
     
+    // 배지 표시 (우측)
+    const badgesCard = document.createElement("div");
+    badgesCard.className = "card";
+    const badges = state.challengeStatus?.badges || [];
+    const tier = state.challengeStatus?.tier || 1;
+    const tierName = state.challengeStatus?.tier_name || "새싹 커플";
+    const badgeCount = state.challengeStatus?.badge_count !== undefined ? state.challengeStatus.badge_count : badges.length;
+    const nextTierBadgesNeeded = state.challengeStatus?.next_tier_badges_needed;
+    
+    // 디버깅: 티어 정보 확인
+    console.log("티어 정보:", { tier, tierName, badgeCount, nextTierBadgesNeeded, badges });
+    
+    // 티어별 최소 배지 개수 계산 (진행도 표시용)
+    const getTierRange = (tierNum) => {
+      if (tierNum === 1) return { min: 0, max: 4 };
+      if (tierNum === 2) return { min: 5, max: 9 };
+      if (tierNum === 3) return { min: 10, max: 14 };
+      if (tierNum === 4) return { min: 15, max: 19 };
+      return { min: 20, max: null };
+    };
+    
+    const currentTierRange = getTierRange(tier);
+    const isMaxTier = tier === 5;
+    let progressPercentage = 0;
+    let progressText = "";
+    
+    if (isMaxTier) {
+      progressPercentage = 100;
+      progressText = "최고 티어 달성!";
+    } else {
+      const currentProgress = badgeCount - currentTierRange.min;
+      const tierRange = currentTierRange.max - currentTierRange.min + 1;
+      progressPercentage = Math.min(100, (currentProgress / tierRange) * 100);
+      progressText = `${badgeCount}개 / ${currentTierRange.max + 1}개`;
+    }
+    
+    // 티어 정보 섹션
+    let tierInfoHtml = `
+      <div style="background: linear-gradient(135deg,rgb(212, 172, 199) 0%,rgb(214, 55, 166) 100%); color: white; padding: 1.5rem; border-radius: 0.5rem; margin-bottom: 1.5rem;">
+        <div style="text-align: center;">
+          <div style="font-size: 0.85rem; opacity: 0.9; margin-bottom: 0.5rem;">현재 단계</div>
+          <div style="font-size: 2rem; font-weight: bold; margin-bottom: 0.3rem;">Level ${tier}</div>
+          <div style="font-size: 1.3rem; font-weight: 600; margin-bottom: 0.8rem;">💑${tierName}</div>
+          <div style="font-size: 0.9rem; opacity: 0.95; margin-bottom: 1rem;">보유 배지: <strong>${badgeCount}개</strong></div>
+          
+          ${isMaxTier
+            ? `
+              <div style="background: rgba(255, 255, 255, 0.2); border-radius: 0.4rem; padding: 0.8rem; margin-top: 1rem;">
+                <div style="font-size: 0.9rem; font-weight: 600;">${progressText}</div>
+              </div>
+            `
+            : `
+              <div style="background: rgba(255, 255, 255, 0.2); border-radius: 0.4rem; padding: 0.8rem; margin-top: 1rem;">
+                <div style="font-size: 0.85rem; opacity: 0.95; margin-bottom: 0.5rem;">다음 단계까지</div>
+                <div style="font-size: 1.1rem; font-weight: bold; margin-bottom: 0.5rem;">${nextTierBadgesNeeded !== null && nextTierBadgesNeeded !== undefined ? nextTierBadgesNeeded : (currentTierRange.max + 1 - badgeCount)}개 더 필요</div>
+                <div style="background: rgba(255, 255, 255, 0.3); border-radius: 0.3rem; height: 8px; overflow: hidden;">
+                  <div style="background: white; height: 100%; width: ${progressPercentage}%; transition: width 0.3s ease;"></div>
+                </div>
+                <div style="font-size: 0.75rem; opacity: 0.9; margin-top: 0.4rem;">${progressText}</div>
+              </div>
+            `
+          }
+        </div>
+      </div>
+    `;
+    
+    // 배지 현황 섹션
+    let badgeStatusHtml = `
+      <div style="margin-bottom: 1.5rem;">
+        <h3 style="font-size: 1rem; font-weight: 600; margin-bottom: 0.8rem; color: #333;">배지 현황</h3>
+        <div style="background: #f5f5f5; border-radius: 0.5rem; padding: 1rem; margin-bottom: 1rem;">
+          <div style="font-size: 0.9rem; color: #666; margin-bottom: 0.5rem;">획득한 배지</div>
+          <div style="font-size: 1.5rem; font-weight: bold; color: #333;">${badgeCount}개</div>
+        </div>
+        ${badges.length > 0
+          ? `
+            <div style="background: #f9f9f9; border-radius: 0.5rem; padding: 1rem;">
+              <div style="font-size: 0.9rem; color: #666; margin-bottom: 0.8rem;">배지 목록</div>
+              <div style="display: flex; flex-wrap: wrap; gap: 0.5rem; justify-content: flex-start;">
+                ${badges.map((badge) => `<span class="inline-chip" style="font-size: 1.8rem; padding: 0.6rem; background: white; border: 1px solid #e0e0e0;">${badge}</span>`).join("")}
+              </div>
+            </div>
+          `
+          : `
+            <div style="background: #f9f9f9; border-radius: 0.5rem; padding: 1.5rem; text-align: center;">
+              <p class="section-caption" style="color: #999; margin: 0;">아직 획득한 배지가 없습니다.<br/>챌린지를 완료하여 배지를 획득해보세요!</p>
+            </div>
+          `
     // 리포트가 있는 날짜를 맵으로 저장 (날짜 문자열 -> 리포트 배열)
     const reportsByDate = new Map();
     if (state.savedReports && state.savedReports.length > 0) {
@@ -538,6 +676,13 @@ function renderRightPanel() {
         </div>
       </div>
     `;
+    
+    badgesCard.innerHTML = `
+      <h2 class="section-title">커플 배지</h2>
+      ${tierInfoHtml}
+      ${badgeStatusHtml}
+    `;
+    wrapper.appendChild(badgesCard);
     
     savedReportsCard.innerHTML = calendarHTML;
     container.appendChild(savedReportsCard);
@@ -1027,47 +1172,89 @@ function renderChallengesView() {
       </p>
     `;
   } else {
-    const list = document.createElement("div");
-    list.className = "stack";
-    
-    state.challengeStatus.challenge_places.forEach((place) => {
-      const placeCard = document.createElement("div");
-      placeCard.className = "card sub";
-      
-      let statusBadge = "";
-      let actionButton = "";
-      
-      if (place.review_completed) {
-        statusBadge = `<span class="inline-chip" style="background: #4caf50; color: white;">완료</span>`;
-      } else if (place.location_verified) {
-        statusBadge = `<span class="inline-chip" style="background: #ff9800; color: white;">리뷰 작성 가능</span>`;
-        actionButton = `<button class="primary-btn" data-action="review" data-place-id="${place.id}">리뷰 작성</button>`;
-      } else {
-        statusBadge = `<span class="inline-chip">미인증</span>`;
-        actionButton = `<button class="primary-outline" data-action="verify" data-place-id="${place.id}">위치 인증</button>`;
+    const categoryOrder = [];
+    const groupedPlaces = state.challengeStatus.challenge_places.reduce((acc, place) => {
+      const categoryKey = place.category_id || "uncategorized";
+      if (!acc[categoryKey]) {
+        acc[categoryKey] = {
+          name: place.category_name || "기타",
+          icon: place.category_icon || "📍",
+          color: place.category_color || "#5f6368",
+          places: [],
+        };
+        categoryOrder.push(categoryKey);
       }
-      
-      placeCard.innerHTML = `
-        <header class="card-header">
-          <div>
-            <h3 class="card-title">${place.name}</h3>
-            <p class="subtext">${place.description}</p>
-          </div>
-          ${statusBadge}
-        </header>
-        <div class="pill-list">
-          <span class="inline-chip">${place.badge_reward} 배지</span>
-          <span class="inline-chip">${place.points_reward} 포인트</span>
-        </div>
-        <div style="margin-top: 0.5rem;">
-          ${actionButton}
-        </div>
-      `;
-      
-      list.appendChild(placeCard);
-    });
+      acc[categoryKey].places.push(place);
+      return acc;
+    }, {});
     
-    listCard.appendChild(list);
+    categoryOrder.forEach((categoryId) => {
+      const category = groupedPlaces[categoryId];
+      const categoryBlock = document.createElement("div");
+      categoryBlock.className = "stack";
+      categoryBlock.style.padding = "0.5rem 0";
+      
+      const categoryTitle = document.createElement("h3");
+      categoryTitle.className = "section-title";
+      const icon = category.icon ? `<span style="margin-right: 0.35rem;">${category.icon}</span>` : "";
+      categoryTitle.innerHTML = `${icon}${category.name}`;
+      categoryTitle.style.display = "flex";
+      categoryTitle.style.alignItems = "center";
+      categoryTitle.style.gap = "0.35rem";
+      categoryTitle.style.marginBottom = "0.35rem";
+      categoryTitle.style.paddingBottom = "0.35rem";
+      categoryTitle.style.borderBottom = `2px solid ${category.color}`;
+      categoryTitle.style.color = category.color;
+      categoryBlock.appendChild(categoryTitle);
+      
+      const list = document.createElement("div");
+      list.className = "stack";
+      
+      category.places.forEach((place) => {
+        const placeCard = document.createElement("div");
+        placeCard.className = "card sub";
+        const accentColor = place.category_color || category.color || "#5f6368";
+        placeCard.style.border = `1px solid ${accentColor}`;
+        placeCard.style.boxShadow = `0 6px 20px ${hexToRgba(accentColor, 0.18)}`;
+        placeCard.style.background = `linear-gradient(135deg, ${hexToRgba(accentColor, 0.08)}, #ffffff)`;
+        
+        let statusBadge = "";
+        let actionButton = "";
+        
+        if (place.review_completed) {
+          statusBadge = `<span class="inline-chip" style="background: #4caf50; color: white;">완료</span>`;
+        } else if (place.location_verified) {
+          statusBadge = `<span class="inline-chip" style="background: #ff9800; color: white;">리뷰 작성 가능</span>`;
+          actionButton = `<button class="primary-btn" data-action="review" data-place-id="${place.id}">리뷰 작성</button>`;
+        } else {
+          statusBadge = `<span class="inline-chip">미인증</span>`;
+          actionButton = `<button class="primary-outline" data-action="verify" data-place-id="${place.id}">위치 인증</button>`;
+        }
+        
+        placeCard.innerHTML = `
+          <header class="card-header">
+            <div>
+              <h3 class="card-title">${place.name}</h3>
+              <p class="subtext">${place.description}</p>
+            </div>
+            ${statusBadge}
+          </header>
+          <div class="pill-list">
+            <span class="inline-chip">${place.badge_reward} 배지</span>
+            <span class="inline-chip">${place.points_reward} 포인트</span>
+          </div>
+          <div style="margin-top: 0.5rem; display: flex; gap: 0.5rem; flex-wrap: wrap;">
+            ${actionButton}
+            <button class="primary-outline" data-action="show-on-map" data-place-id="${place.id}" data-latitude="${place.latitude}" data-longitude="${place.longitude}" data-place-name="${place.name}">지도에서 보기</button>
+          </div>
+        `;
+        
+        list.appendChild(placeCard);
+      });
+      
+      categoryBlock.appendChild(list);
+      listCard.appendChild(categoryBlock);
+    });
   }
 
   wrapper.appendChild(listCard);
@@ -1080,6 +1267,15 @@ function renderChallengesView() {
   
   selectAll('[data-action="review"]').forEach((btn) => {
     btn.addEventListener("click", () => handleReviewWrite(btn.dataset.placeId));
+  });
+  
+  selectAll('[data-action="show-on-map"]').forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const latitude = parseFloat(btn.dataset.latitude);
+      const longitude = parseFloat(btn.dataset.longitude);
+      const name = btn.dataset.placeName;
+      showPlaceMarker(latitude, longitude, name);
+    });
   });
 }
 
@@ -1817,7 +2013,15 @@ async function loadChallengeStatus() {
     console.log("챌린지 상태 로드 완료:", state.challengeStatus);
   } catch (error) {
     console.error("챌린지 상태를 불러오지 못했습니다.", error);
-    state.challengeStatus = { points: 0, badges: [], challenge_places: [] };
+    state.challengeStatus = { 
+      points: 0, 
+      badges: [], 
+      challenge_places: [],
+      tier: 1,
+      tier_name: "새싹 커플",
+      badge_count: 0,
+      next_tier_badges_needed: 1
+    };
     // 에러가 발생해도 빈 상태로 설정하여 UI가 계속 작동하도록 함
   }
 }
