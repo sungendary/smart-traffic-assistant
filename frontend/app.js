@@ -1269,12 +1269,51 @@ function renderChallengesView() {
       </p>
     `;
   } else {
-    const list = document.createElement("div");
-    list.className = "stack";
+    const categoryOrder = [];
+    const groupedPlaces = state.challengeStatus.challenge_places.reduce((acc, place) => {
+      const categoryKey = place.category_id || "uncategorized";
+      if (!acc[categoryKey]) {
+        acc[categoryKey] = {
+          name: place.category_name || "기타",
+          icon: place.category_icon || "📍",
+          color: place.category_color || "#5f6368",
+          places: [],
+        };
+        categoryOrder.push(categoryKey);
+      }
+      acc[categoryKey].places.push(place);
+      return acc;
+    }, {});
     
-    state.challengeStatus.challenge_places.forEach((place) => {
+    categoryOrder.forEach((categoryId) => {
+      const category = groupedPlaces[categoryId];
+      const categoryBlock = document.createElement("div");
+      categoryBlock.className = "stack";
+      categoryBlock.style.padding = "0.5rem 0";
+      
+      const categoryTitle = document.createElement("h3");
+      categoryTitle.className = "section-title";
+      const icon = category.icon ? `<span style="margin-right: 0.35rem;">${category.icon}</span>` : "";
+      categoryTitle.innerHTML = `${icon}${category.name}`;
+      categoryTitle.style.display = "flex";
+      categoryTitle.style.alignItems = "center";
+      categoryTitle.style.gap = "0.35rem";
+      categoryTitle.style.marginBottom = "0.35rem";
+      categoryTitle.style.paddingBottom = "0.35rem";
+      categoryTitle.style.borderBottom = `2px solid ${category.color}`;
+      categoryTitle.style.color = category.color;
+      categoryBlock.appendChild(categoryTitle);
+
+      const list = document.createElement("div");
+      list.className = "stack";
+    
+    category.places.forEach((place) => {
       const placeCard = document.createElement("div");
       placeCard.className = "card sub";
+      const accentColor = place.category_color || category.color || "#5f6368";
+      placeCard.style.border = `1px solid ${accentColor}`;
+      placeCard.style.boxShadow = `0 6px 20px ${hexToRgba(accentColor, 0.18)}`;
+      placeCard.style.background = `linear-gradient(135deg, ${hexToRgba(accentColor, 0.08)}, #ffffff)`;
       
       let statusBadge = "";
       let actionButton = "";
@@ -1310,7 +1349,9 @@ function renderChallengesView() {
       list.appendChild(placeCard);
     });
     
-    listCard.appendChild(list);
+      categoryBlock.appendChild(list);
+      listCard.appendChild(categoryBlock);
+    });
   }
 
   wrapper.appendChild(listCard);
