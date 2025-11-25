@@ -1269,47 +1269,89 @@ function renderChallengesView() {
       </p>
     `;
   } else {
-    const list = document.createElement("div");
-    list.className = "stack";
-    
-    state.challengeStatus.challenge_places.forEach((place) => {
-      const placeCard = document.createElement("div");
-      placeCard.className = "card sub";
-      
-      let statusBadge = "";
-      let actionButton = "";
-      
-      if (place.review_completed) {
-        statusBadge = `<span class="inline-chip" style="background: #4caf50; color: white;">완료</span>`;
-      } else if (place.location_verified) {
-        statusBadge = `<span class="inline-chip" style="background: #ff9800; color: white;">리뷰 작성 가능</span>`;
-        actionButton = `<button class="primary-btn" data-action="review" data-place-id="${place.id}">리뷰 작성</button>`;
-      } else {
-        statusBadge = `<span class="inline-chip">미인증</span>`;
-        actionButton = `<button class="primary-outline" data-action="verify" data-place-id="${place.id}">위치 인증</button>`;
+    const categoryOrder = [];
+    const groupedPlaces = state.challengeStatus.challenge_places.reduce((acc, place) => {
+      const categoryKey = place.category_id || "uncategorized";
+      if (!acc[categoryKey]) {
+        acc[categoryKey] = {
+          name: place.category_name || "기타",
+          icon: place.category_icon || "📍",
+          color: place.category_color || "#5f6368",
+          places: [],
+        };
+        categoryOrder.push(categoryKey);
       }
-      
-      placeCard.innerHTML = `
-        <header class="card-header">
-          <div>
-            <h3 class="card-title">${place.name}</h3>
-            <p class="subtext">${place.description}</p>
-          </div>
-          ${statusBadge}
-        </header>
-        <div class="pill-list">
-          <span class="inline-chip">${place.badge_reward} 배지</span>
-          <span class="inline-chip">${place.points_reward} 포인트</span>
-        </div>
-        <div style="margin-top: 0.5rem;">
-          ${actionButton}
-        </div>
-      `;
-      
-      list.appendChild(placeCard);
-    });
+      acc[categoryKey].places.push(place);
+      return acc;
+    }, {});
     
-    listCard.appendChild(list);
+    categoryOrder.forEach((categoryId) => {
+      const category = groupedPlaces[categoryId];
+      const categoryBlock = document.createElement("div");
+      categoryBlock.className = "stack";
+      categoryBlock.style.padding = "0.5rem 0";
+      
+      const categoryTitle = document.createElement("h3");
+      categoryTitle.className = "section-title";
+      const icon = category.icon ? `<span style="margin-right: 0.35rem;">${category.icon}</span>` : "";
+      categoryTitle.innerHTML = `${icon}${category.name}`;
+      categoryTitle.style.display = "flex";
+      categoryTitle.style.alignItems = "center";
+      categoryTitle.style.gap = "0.35rem";
+      categoryTitle.style.marginBottom = "0.35rem";
+      categoryTitle.style.paddingBottom = "0.35rem";
+      categoryTitle.style.borderBottom = `2px solid ${category.color}`;
+      categoryTitle.style.color = category.color;
+      categoryBlock.appendChild(categoryTitle);
+      
+      const list = document.createElement("div");
+      list.className = "stack";
+      
+      category.places.forEach((place) => {
+        const placeCard = document.createElement("div");
+        placeCard.className = "card sub";
+        const accentColor = place.category_color || category.color || "#5f6368";
+        placeCard.style.border = `1px solid ${accentColor}`;
+        placeCard.style.boxShadow = `0 6px 20px ${hexToRgba(accentColor, 0.18)}`;
+        placeCard.style.background = `linear-gradient(135deg, ${hexToRgba(accentColor, 0.08)}, #ffffff)`;
+        
+        let statusBadge = "";
+        let actionButton = "";
+        
+        if (place.review_completed) {
+          statusBadge = `<span class="inline-chip" style="background: #4caf50; color: white;">완료</span>`;
+        } else if (place.location_verified) {
+          statusBadge = `<span class="inline-chip" style="background: #ff9800; color: white;">리뷰 작성 가능</span>`;
+          actionButton = `<button class="primary-btn" data-action="review" data-place-id="${place.id}">리뷰 작성</button>`;
+        } else {
+          statusBadge = `<span class="inline-chip">미인증</span>`;
+          actionButton = `<button class="primary-outline" data-action="verify" data-place-id="${place.id}">위치 인증</button>`;
+        }
+        
+        placeCard.innerHTML = `
+          <header class="card-header">
+            <div>
+              <h3 class="card-title">${place.name}</h3>
+              <p class="subtext">${place.description}</p>
+            </div>
+            ${statusBadge}
+          </header>
+          <div class="pill-list">
+            <span class="inline-chip">${place.badge_reward} 배지</span>
+            <span class="inline-chip">${place.points_reward} 포인트</span>
+          </div>
+          <div style="margin-top: 0.5rem; display: flex; gap: 0.5rem; flex-wrap: wrap;">
+            ${actionButton}
+            <button class="primary-outline" data-action="show-on-map" data-place-id="${place.id}" data-latitude="${place.latitude}" data-longitude="${place.longitude}" data-place-name="${place.name}">지도에서 보기</button>
+          </div>
+        `;
+        
+        list.appendChild(placeCard);
+      });
+      
+      categoryBlock.appendChild(list);
+      listCard.appendChild(categoryBlock);
+    });
   }
 
   wrapper.appendChild(listCard);
@@ -1322,6 +1364,15 @@ function renderChallengesView() {
   
   selectAll('[data-action="review"]').forEach((btn) => {
     btn.addEventListener("click", () => handleReviewWrite(btn.dataset.placeId));
+  });
+  
+  selectAll('[data-action="show-on-map"]').forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const latitude = parseFloat(btn.dataset.latitude);
+      const longitude = parseFloat(btn.dataset.longitude);
+      const name = btn.dataset.placeName;
+      showPlaceMarker(latitude, longitude, name);
+    });
   });
 }
 
@@ -1391,8 +1442,9 @@ function attachNavListeners() {
       switchView(view);
     });
   });
-  select("#settings-btn")?.addEventListener("click", () => {
-    showSettingsModal();
+  select("#toggle-right").addEventListener("click", () => {
+    state.isRightOpen = !state.isRightOpen;
+    renderRightPanel();
   });
 }
 
@@ -1800,17 +1852,17 @@ async function loadSavedReports() {
   }
 }
 
-async function loadSavedReport(reportId, fromSettings = false) {
+async function loadSavedReport(reportId) {
   if (!state.user) return;
   try {
     const report = await fetchJSON(`/api/reports/saved/${reportId}`);
-    showReportModal(report, fromSettings);
+    showReportModal(report);
   } catch (error) {
     alert(error.message);
   }
 }
 
-function showReportModal(report, fromSettings = false) {
+function showReportModal(report) {
   // 기존 모달이 있으면 제거
   const existingModal = select("#report-modal");
   if (existingModal) {
@@ -1826,40 +1878,25 @@ function showReportModal(report, fromSettings = false) {
   const memoContainer = document.createElement("div");
   memoContainer.className = "report-memo-container";
   
-  // 닫기 함수 (설정 모달에서 열었으면 다시 설정 모달 표시)
-  const closeModal = () => {
-    modal.remove();
-    if (fromSettings) {
-      // 숨겨진 설정 모달을 다시 표시
-      const settingsModal = select("#settings-modal");
-      if (settingsModal) {
-        settingsModal.style.display = "flex";
-      } else {
-        // 설정 모달이 없으면 새로 생성
-        setTimeout(() => {
-          showSettingsModal();
-        }, 100);
-      }
-    }
-  };
-  
   // 닫기 버튼
   const closeBtn = document.createElement("button");
   closeBtn.className = "report-modal-close";
   closeBtn.innerHTML = "×";
-  closeBtn.addEventListener("click", closeModal);
+  closeBtn.addEventListener("click", () => {
+    modal.remove();
+  });
   
   // 오버레이 클릭 시 닫기
   modal.addEventListener("click", (e) => {
     if (e.target === modal) {
-      closeModal();
+      modal.remove();
     }
   });
   
   // ESC 키로 닫기
   const handleEsc = (e) => {
     if (e.key === "Escape") {
-      closeModal();
+      modal.remove();
       document.removeEventListener("keydown", handleEsc);
     }
   };
@@ -2293,510 +2330,6 @@ async function bootstrap() {
     }
   }
   switchView(state.currentView);
-}
-
-function showSettingsModal() {
-  // 기존 모달이 있으면 제거
-  const existingModal = select("#settings-modal");
-  if (existingModal) {
-    existingModal.remove();
-  }
-  
-  // 모달 오버레이 생성
-  const modal = document.createElement("div");
-  modal.id = "settings-modal";
-  modal.className = "report-modal-overlay";
-  
-  // 설정 컨테이너
-  const settingsContainer = document.createElement("div");
-  settingsContainer.className = "report-memo-container";
-  settingsContainer.style.maxWidth = "800px";
-  settingsContainer.style.maxHeight = "90vh";
-  settingsContainer.style.overflowY = "auto";
-  
-  // 닫기 버튼
-  const closeBtn = document.createElement("button");
-  closeBtn.className = "report-modal-close";
-  closeBtn.innerHTML = "×";
-  closeBtn.addEventListener("click", () => {
-    modal.remove();
-  });
-  
-  // 오버레이 클릭 시 닫기
-  modal.addEventListener("click", (e) => {
-    if (e.target === modal) {
-      modal.remove();
-    }
-  });
-  
-  // ESC 키로 닫기
-  const handleEsc = (e) => {
-    if (e.key === "Escape") {
-      modal.remove();
-      document.removeEventListener("keydown", handleEsc);
-    }
-  };
-  document.addEventListener("keydown", handleEsc);
-  
-  // 설정 내용
-  settingsContainer.innerHTML = `
-    <div style="padding: 2.5rem;">
-      <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 2.5rem;">
-        <div style="width: 48px; height: 48px; background: linear-gradient(135deg, var(--accent), #ff80b2); border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; box-shadow: 0 4px 12px rgba(255, 90, 153, 0.3);">
-          ⚙️
-        </div>
-        <h1 style="margin: 0; font-size: 1.8rem; font-weight: 700; background: linear-gradient(135deg, var(--accent), #ff80b2); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">설정</h1>
-      </div>
-      
-      <div class="settings-tabs">
-        <button class="settings-tab active" data-tab="account">
-          <span style="margin-right: 0.5rem;">👤</span>계정
-        </button>
-        <button class="settings-tab" data-tab="couple">
-          <span style="margin-right: 0.5rem;">💕</span>커플
-        </button>
-        <button class="settings-tab" data-tab="reports">
-          <span style="margin-right: 0.5rem;">📊</span>리포트 관리
-        </button>
-      </div>
-      
-      <div id="settings-content" style="margin-top: 2rem;">
-        <!-- 탭 내용이 여기에 동적으로 로드됨 -->
-      </div>
-    </div>
-  `;
-  
-  settingsContainer.appendChild(closeBtn);
-  modal.appendChild(settingsContainer);
-  document.body.appendChild(modal);
-  
-  // 탭 전환 이벤트
-  selectAll('.settings-tab').forEach(tab => {
-    tab.addEventListener('click', () => {
-      selectAll('.settings-tab').forEach(t => t.classList.remove('active'));
-      tab.classList.add('active');
-      loadSettingsTab(tab.dataset.tab).catch(console.error);
-    });
-  });
-  
-  // 초기 탭 로드
-  loadSettingsTab('account').catch(console.error);
-  
-  // 애니메이션을 위해 약간의 지연 후 표시
-  setTimeout(() => {
-    modal.classList.add("show");
-  }, 10);
-}
-
-async function loadSettingsTab(tabName) {
-  const content = select("#settings-content");
-  if (!content) return;
-  
-  if (tabName === 'account') {
-    loadAccountSettings(content);
-  } else if (tabName === 'couple') {
-    loadCoupleSettings(content);
-  } else if (tabName === 'reports') {
-    await loadReportsSettings(content);
-  }
-}
-
-function loadAccountSettings(container) {
-  if (!state.user) {
-    container.innerHTML = `<p class="section-caption">로그인이 필요합니다.</p>`;
-    return;
-  }
-  
-  container.innerHTML = `
-    <div class="settings-card" style="margin-bottom: 1.5rem;">
-      <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.5rem;">
-        <div style="width: 40px; height: 40px; background: linear-gradient(135deg, #667eea, #764ba2); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem;">
-          👤
-        </div>
-        <h2 class="section-title" style="margin: 0;">계정 정보</h2>
-      </div>
-      <form id="account-form" class="stack">
-        <label class="settings-label">
-          <span style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: var(--text);">이메일</span>
-          <input type="email" value="${state.user.email}" disabled class="settings-input-disabled" />
-          <p class="section-caption" style="font-size: 0.85rem; margin-top: 0.5rem; color: var(--text-muted);">이메일은 변경할 수 없습니다.</p>
-        </label>
-        <label class="settings-label">
-          <span style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: var(--text);">닉네임</span>
-          <input type="text" name="nickname" value="${state.user.nickname || ''}" placeholder="닉네임을 입력하세요" class="settings-input" />
-        </label>
-        <button type="submit" class="primary-btn" style="margin-top: 0.5rem;">💾 닉네임 변경</button>
-      </form>
-    </div>
-    
-    <div class="settings-card" style="margin-bottom: 1.5rem;">
-      <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.5rem;">
-        <div style="width: 40px; height: 40px; background: linear-gradient(135deg, #f093fb, #f5576c); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem;">
-          🔒
-        </div>
-        <h2 class="section-title" style="margin: 0;">비밀번호 변경</h2>
-      </div>
-      <form id="password-form" class="stack">
-        <label class="settings-label">
-          <span style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: var(--text);">현재 비밀번호</span>
-          <input type="password" name="current_password" placeholder="현재 비밀번호를 입력하세요" required class="settings-input" />
-        </label>
-        <label class="settings-label">
-          <span style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: var(--text);">새 비밀번호</span>
-          <input type="password" name="new_password" placeholder="8자 이상의 새 비밀번호를 입력하세요" required minlength="8" class="settings-input" />
-        </label>
-        <label class="settings-label">
-          <span style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: var(--text);">새 비밀번호 확인</span>
-          <input type="password" name="confirm_password" placeholder="새 비밀번호를 다시 입력하세요" required minlength="8" class="settings-input" />
-        </label>
-        <button type="submit" class="primary-btn" style="margin-top: 0.5rem;">🔐 비밀번호 변경</button>
-      </form>
-    </div>
-    
-    <div class="settings-card-danger">
-      <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem;">
-        <div style="width: 40px; height: 40px; background: linear-gradient(135deg, #ff4444, #cc0000); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem;">
-          ⚠️
-        </div>
-        <h2 class="section-title" style="margin: 0; color: #ff4444;">위험한 작업</h2>
-      </div>
-      <p class="section-caption" style="margin-bottom: 1rem; line-height: 1.6;">계정을 삭제하면 모든 데이터가 영구적으로 삭제되며 복구할 수 없습니다.</p>
-      <button id="delete-account-btn" class="danger-btn">🗑️ 계정 삭제</button>
-    </div>
-  `;
-  
-  // 이벤트 리스너
-  select("#account-form")?.addEventListener("submit", handleAccountUpdate);
-  select("#password-form")?.addEventListener("submit", handlePasswordChange);
-  select("#delete-account-btn")?.addEventListener("click", handleAccountDelete);
-}
-
-function loadCoupleSettings(container) {
-  if (!state.user) {
-    container.innerHTML = `<p class="section-caption">로그인이 필요합니다.</p>`;
-    return;
-  }
-  
-  const couple = state.couple;
-  const hasCouple = couple && couple.members && couple.members.length >= 2;
-  
-  if (!hasCouple) {
-    container.innerHTML = `
-      <div class="settings-card" style="text-align: center; padding: 3rem 2rem;">
-        <div style="font-size: 3rem; margin-bottom: 1rem;">💕</div>
-        <h2 class="section-title">커플 정보</h2>
-        <p class="section-caption" style="margin-top: 0.5rem;">현재 연결된 커플이 없습니다.</p>
-        <p class="section-caption" style="font-size: 0.85rem; margin-top: 0.5rem; color: var(--text-muted);">
-          커플 페이지에서 파트너를 초대하거나 초대 코드로 합류할 수 있습니다.
-        </p>
-      </div>
-    `;
-    return;
-  }
-  
-  const members = couple.members || [];
-  const preferences = couple.preferences || { tags: [], emotion_goals: [], budget: "medium" };
-  
-  container.innerHTML = `
-    <div class="settings-card" style="margin-bottom: 1.5rem;">
-      <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.5rem;">
-        <div style="width: 40px; height: 40px; background: linear-gradient(135deg, var(--accent), #ff80b2); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem;">
-          💕
-        </div>
-        <h2 class="section-title" style="margin: 0;">커플 정보</h2>
-      </div>
-      <div style="margin-bottom: 1.5rem;">
-        <h3 style="font-size: 0.95rem; margin-bottom: 0.75rem; font-weight: 600; color: var(--text);">커플 구성원</h3>
-        <div class="stack">
-          ${members.map(member => `
-            <div style="padding: 1rem; background: linear-gradient(135deg, rgba(255, 90, 153, 0.08), rgba(255, 128, 178, 0.08)); border-radius: 12px; border: 1px solid rgba(255, 90, 153, 0.2);">
-              <div style="font-weight: 600; font-size: 1rem; margin-bottom: 0.25rem;">${member.nickname || member.email}</div>
-              <div style="font-size: 0.85rem; color: var(--text-muted);">${member.email}</div>
-            </div>
-          `).join('')}
-        </div>
-      </div>
-      <div>
-        <h3 style="font-size: 0.95rem; margin-bottom: 0.75rem; font-weight: 600; color: var(--text);">초대 코드</h3>
-        <div class="inline-chips">
-          <span class="inline-chip" style="font-size: 1.1rem; font-weight: 700; background: linear-gradient(135deg, var(--accent), #ff80b2); color: white; padding: 0.75rem 1.5rem; letter-spacing: 0.1em;">${couple.invite_code || '없음'}</span>
-        </div>
-      </div>
-    </div>
-    
-    <div class="settings-card" style="margin-bottom: 1.5rem;">
-      <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.5rem;">
-        <div style="width: 40px; height: 40px; background: linear-gradient(135deg, #667eea, #764ba2); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem;">
-          ⭐
-        </div>
-        <h2 class="section-title" style="margin: 0;">커플 선호 설정</h2>
-      </div>
-      <form id="couple-pref-form" class="stack">
-        <label class="settings-label">
-          <span style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: var(--text);">선호 태그 (쉼표로 구분)</span>
-          <input type="text" name="tags" value="${preferences.tags.join(', ')}" placeholder="예: 카페, 식당, 야경" class="settings-input" />
-        </label>
-        <label class="settings-label">
-          <span style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: var(--text);">감정 목표 (쉼표로 구분)</span>
-          <input type="text" name="emotion_goals" value="${preferences.emotion_goals.join(', ')}" placeholder="예: 힐링, 설렘" class="settings-input" />
-        </label>
-        <label class="settings-label">
-          <span style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: var(--text);">예산 범위</span>
-          <select name="budget" class="settings-input">
-            <option value="free" ${preferences.budget === 'free' ? 'selected' : ''}>무료</option>
-            <option value="low" ${preferences.budget === 'low' ? 'selected' : ''}>3만원 이하</option>
-            <option value="medium" ${preferences.budget === 'medium' ? 'selected' : ''}>3~8만원</option>
-            <option value="high" ${preferences.budget === 'high' ? 'selected' : ''}>8~15만원</option>
-            <option value="premium" ${preferences.budget === 'premium' ? 'selected' : ''}>15만원 이상</option>
-          </select>
-        </label>
-        <button type="submit" class="primary-btn" style="margin-top: 0.5rem;">💾 선호 설정 저장</button>
-      </form>
-    </div>
-    
-    <div class="settings-card-warning">
-      <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem;">
-        <div style="width: 40px; height: 40px; background: linear-gradient(135deg, #ff9800, #f57c00); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem;">
-          ⚠️
-        </div>
-        <h2 class="section-title" style="margin: 0; color: #ff9800;">커플 해제</h2>
-      </div>
-      <p class="section-caption" style="margin-bottom: 1rem; line-height: 1.6;">커플을 해제하면 모든 커플 데이터가 삭제됩니다.</p>
-      <button id="leave-couple-btn" class="warning-btn">💔 커플 해제</button>
-    </div>
-  `;
-  
-  // 이벤트 리스너
-  select("#couple-pref-form")?.addEventListener("submit", handleCouplePrefUpdate);
-  select("#leave-couple-btn")?.addEventListener("click", handleLeaveCouple);
-}
-
-async function loadReportsSettings(container) {
-  if (!state.user) {
-    container.innerHTML = `<p class="section-caption">로그인이 필요합니다.</p>`;
-    return;
-  }
-  
-  // 저장된 리포트 목록이 없으면 로드
-  if (!state.savedReportsLoaded) {
-    container.innerHTML = `
-      <div class="settings-card" style="text-align: center; padding: 3rem 2rem;">
-        <div style="font-size: 2rem; margin-bottom: 1rem;">⏳</div>
-        <h2 class="section-title">저장된 리포트</h2>
-        <p class="section-caption">로딩 중...</p>
-      </div>
-    `;
-    await loadSavedReports();
-  }
-  
-  // 저장된 리포트 목록 로드
-  if (!state.savedReports || state.savedReports.length === 0) {
-    container.innerHTML = `
-      <div class="settings-card" style="text-align: center; padding: 3rem 2rem;">
-        <div style="font-size: 3rem; margin-bottom: 1rem;">📊</div>
-        <h2 class="section-title">저장된 리포트</h2>
-        <p class="section-caption" style="margin-top: 0.5rem;">저장된 리포트가 없습니다.</p>
-      </div>
-    `;
-    return;
-  }
-  
-  container.innerHTML = `
-    <div class="settings-card">
-      <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.5rem;">
-        <div style="width: 40px; height: 40px; background: linear-gradient(135deg, #667eea, #764ba2); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem;">
-          📊
-        </div>
-        <h2 class="section-title" style="margin: 0;">저장된 리포트</h2>
-        <span class="inline-chip" style="margin-left: auto; background: var(--accent-soft); color: var(--accent); font-weight: 600;">${state.savedReports.length}개</span>
-      </div>
-      <div class="stack" style="max-height: 500px; overflow-y: auto; gap: 0.75rem;">
-        ${state.savedReports.map(report => {
-          const reportId = report.id || report._id || '';
-          const reportName = report.name || `${report.month} 리포트`;
-          const reportDate = new Date(report.created_at).toLocaleDateString('ko-KR', { 
-            year: 'numeric', 
-            month: 'long', 
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-          });
-          return `
-            <div class="settings-report-item" style="display: flex; justify-content: space-between; align-items: center; padding: 1rem; background: linear-gradient(135deg, rgba(102, 126, 234, 0.05), rgba(118, 75, 162, 0.05)); border-radius: 12px; border: 1px solid rgba(102, 126, 234, 0.2); transition: all 0.2s ease;">
-              <div style="flex: 1;">
-                <h3 style="margin: 0; font-size: 1rem; font-weight: 600; color: var(--text); margin-bottom: 0.25rem;">${reportName}</h3>
-                <p style="margin: 0; font-size: 0.85rem; color: var(--text-muted);">
-                  📅 ${reportDate} · 👣 ${report.visit_count}회 방문
-                </p>
-              </div>
-              <div style="display: flex; gap: 0.5rem; margin-left: 1rem;">
-                <button class="settings-btn-view" data-action="view" data-report-id="${reportId}">📖 보기</button>
-                <button class="settings-btn-delete" data-action="delete" data-report-id="${reportId}">🗑️ 삭제</button>
-              </div>
-            </div>
-          `;
-        }).join('')}
-      </div>
-    </div>
-  `;
-  
-  // 이벤트 리스너
-  selectAll('[data-action="view"]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const reportId = btn.dataset.reportId;
-      // 설정 모달을 숨기고 리포트 모달 표시 (닫을 때 다시 표시됨)
-      const settingsModal = select("#settings-modal");
-      if (settingsModal) {
-        settingsModal.style.display = "none";
-      }
-      loadSavedReport(reportId, true); // 설정 모달에서 열었음을 표시
-    });
-  });
-  
-  selectAll('[data-action="delete"]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const reportId = btn.dataset.reportId;
-      handleDeleteReport(reportId);
-    });
-  });
-}
-
-// 계정 설정 핸들러
-async function handleAccountUpdate(event) {
-  event.preventDefault();
-  const formData = new FormData(event.target);
-  const nickname = formData.get("nickname");
-  
-  if (!nickname || nickname.trim() === '') {
-    alert("닉네임을 입력해주세요.");
-    return;
-  }
-  
-  try {
-    // TODO: 백엔드에 닉네임 업데이트 API 추가 필요
-    // const data = await fetchJSON("/api/auth/profile", {
-    //   method: "PATCH",
-    //   body: JSON.stringify({ nickname }),
-    // });
-    // state.user = data;
-    // renderApp();
-    alert("닉네임 변경 기능은 곧 추가될 예정입니다.");
-  } catch (error) {
-    alert(error.message);
-  }
-}
-
-async function handlePasswordChange(event) {
-  event.preventDefault();
-  const formData = new FormData(event.target);
-  const currentPassword = formData.get("current_password");
-  const newPassword = formData.get("new_password");
-  const confirmPassword = formData.get("confirm_password");
-  
-  if (newPassword !== confirmPassword) {
-    alert("새 비밀번호가 일치하지 않습니다.");
-    return;
-  }
-  
-  if (newPassword.length < 8) {
-    alert("비밀번호는 8자 이상이어야 합니다.");
-    return;
-  }
-  
-  try {
-    // TODO: 백엔드에 비밀번호 변경 API 추가 필요
-    // await fetchJSON("/api/auth/password", {
-    //   method: "PATCH",
-    //   body: JSON.stringify({
-    //     current_password: currentPassword,
-    //     new_password: newPassword,
-    //   }),
-    // });
-    alert("비밀번호 변경 기능은 곧 추가될 예정입니다.");
-    event.target.reset();
-  } catch (error) {
-    alert(error.message);
-  }
-}
-
-async function handleAccountDelete() {
-  if (!confirm("정말로 계정을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.")) {
-    return;
-  }
-  
-  if (!confirm("다시 한 번 확인합니다. 계정을 삭제하면 모든 데이터가 영구적으로 삭제됩니다.")) {
-    return;
-  }
-  
-  try {
-    // TODO: 백엔드에 계정 삭제 API 추가 필요
-    // await fetchJSON("/api/auth/account", {
-    //   method: "DELETE",
-    // });
-    alert("계정 삭제 기능은 곧 추가될 예정입니다.");
-  } catch (error) {
-    alert(error.message);
-  }
-}
-
-async function handleCouplePrefUpdate(event) {
-  event.preventDefault();
-  const formData = new FormData(event.target);
-  const payload = {
-    tags: (formData.get("tags") || "").split(",").map(t => t.trim()).filter(Boolean),
-    emotion_goals: (formData.get("emotion_goals") || "").split(",").map(e => e.trim()).filter(Boolean),
-    budget: formData.get("budget") || "medium",
-  };
-  
-  try {
-    const data = await fetchJSON("/api/couples/preferences", {
-      method: "PATCH",
-      body: JSON.stringify(payload),
-    });
-    state.couple = data;
-    renderApp();
-    loadCoupleSettings(select("#settings-content"));
-    alert("커플 선호 설정이 업데이트되었습니다.");
-  } catch (error) {
-    alert(error.message);
-  }
-}
-
-async function handleLeaveCouple() {
-  if (!confirm("정말로 커플을 해제하시겠습니까? 커플 데이터가 삭제됩니다.")) {
-    return;
-  }
-  
-  try {
-    // TODO: 백엔드에 커플 해제 API 추가 필요
-    alert("커플 해제 기능은 곧 추가될 예정입니다.");
-  } catch (error) {
-    alert(error.message);
-  }
-}
-
-async function handleDeleteReport(reportId) {
-  if (!confirm("정말로 이 리포트를 삭제하시겠습니까?")) {
-    return;
-  }
-  
-  try {
-    await fetchJSON(`/api/reports/saved/${reportId}`, {
-      method: "DELETE",
-    });
-    
-    // 리포트 목록 새로고침
-    await loadSavedReports();
-    
-    // 설정 모달의 리포트 탭 새로고침
-    if (select("#settings-content")) {
-      loadReportsSettings(select("#settings-content"));
-    }
-    
-    alert("리포트가 삭제되었습니다.");
-  } catch (error) {
-    alert(error.message);
-  }
 }
 
 document.addEventListener("DOMContentLoaded", bootstrap);
