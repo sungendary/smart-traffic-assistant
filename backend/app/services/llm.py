@@ -37,26 +37,14 @@ def _format_report_prompt(month: str, visit_count: int, top_tags: str, emotion_s
     pref_emotions = ", ".join(couple_emotion_goals or [])
     plan_emotions = ", ".join(plan_emotion_goals or [])
     
-    # 예산 범위를 한글로 변환
-    budget_labels = {
-        "free": "무료",
-        "low": "3만원 이하",
-        "medium": "3~8만원",
-        "high": "8~15만원",
-        "premium": "15만원 이상"
-    }
-    budget_label = budget_labels.get(couple_budget, couple_budget or "미설정")
-    
     # 커플 선호 정보를 사전 정보로 명확히 구분
     preference_section = ""
-    if pref_tags or pref_emotions or couple_budget or plan_emotions:
+    if pref_tags or pref_emotions or plan_emotions:
         preference_section = "\n\n[커플 사전 정보 - 이 정보는 커플이 등록한 선호 설정으로, 리포트 작성 시 반드시 참고해야 합니다]\n"
         if pref_tags:
             preference_section += f"- 커플이 좋아하는 태그: {pref_tags}\n"
         if pref_emotions:
             preference_section += f"- 커플이 원하는 감정 목표: {pref_emotions}\n"
-        if couple_budget:
-            preference_section += f"- 커플의 선호 예산 범위: {budget_label}\n"
         if plan_emotions:
             preference_section += f"- 플래너에서 설정한 감정 목표: {plan_emotions}\n"
     
@@ -76,7 +64,6 @@ def _format_report_prompt(month: str, visit_count: int, top_tags: str, emotion_s
 1. 유치원생이 들려주는 듯한 상냥하고 해맑은 톤을 유지하고, 이모지나 의성어를 1~2개 섞어도 좋습니다.
 2. [커플 사전 정보] 섹션의 모든 정보(선호 태그, 감정 목표)를 선택적으로 언급하고, 실제 통계 데이터와 비교하여 자연스럽게 녹여 주세요. 
    - 예: "**카페**를 좋아하신다고 했는데, 이번 달에도 카페 태그가 많이 나왔네요!"
-   - 예: "**3~8만원** 예산을 선호하신다고 했는데, 이번 달 방문 장소들이 그 범위에 잘 맞았어요!"
 3. 커플 사전 정보가 없더라도 통계 데이터를 바탕으로 리포트를 작성하세요.
 4. 어려운 전문 용어는 쓰지 말고, 마지막 문장은 두 사람이 다음 데이트를 응원하는 짧은 감탄사로 마무리하세요.
 5. 중요한 단어나 구절은 **텍스트** 형식으로 강조해주세요 (예: **카페**, **식당**, **신나고 활발한**).
