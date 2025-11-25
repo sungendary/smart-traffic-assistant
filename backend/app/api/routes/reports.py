@@ -133,3 +133,26 @@ async def get_saved_report(
     if "name" not in doc or not doc["name"]:
         doc["name"] = f"{doc.get('month', '')} 리포트"
     return SavedReport(**doc)
+
+
+@router.delete("/saved/{report_id}")
+async def delete_saved_report(
+    report_id: str,
+    current_user: UserPublic = Depends(get_current_user),
+    db: AsyncIOMotorDatabase = Depends(get_mongo_db),
+) -> dict:
+    couple = await get_or_create_couple(db, current_user.id)
+    couple_id = str(couple["_id"])
+    
+    try:
+        result = await db[REPORTS_COL].delete_one({
+            "_id": ObjectId(report_id),
+            "couple_id": ObjectId(couple_id),
+        })
+    except Exception:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="리포트를 찾을 수 없습니다.")
+    
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="리포트를 찾을 수 없습니다.")
+    
+    return {"message": "리포트가 삭제되었습니다."}
