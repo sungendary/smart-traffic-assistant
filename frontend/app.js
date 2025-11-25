@@ -1729,17 +1729,17 @@ async function loadSavedReports() {
   }
 }
 
-async function loadSavedReport(reportId) {
+async function loadSavedReport(reportId, fromSettings = false) {
   if (!state.user) return;
   try {
     const report = await fetchJSON(`/api/reports/saved/${reportId}`);
-    showReportModal(report);
+    showReportModal(report, fromSettings);
   } catch (error) {
     alert(error.message);
   }
 }
 
-function showReportModal(report) {
+function showReportModal(report, fromSettings = false) {
   // 기존 모달이 있으면 제거
   const existingModal = select("#report-modal");
   if (existingModal) {
@@ -1755,25 +1755,40 @@ function showReportModal(report) {
   const memoContainer = document.createElement("div");
   memoContainer.className = "report-memo-container";
   
+  // 닫기 함수 (설정 모달에서 열었으면 다시 설정 모달 표시)
+  const closeModal = () => {
+    modal.remove();
+    if (fromSettings) {
+      // 숨겨진 설정 모달을 다시 표시
+      const settingsModal = select("#settings-modal");
+      if (settingsModal) {
+        settingsModal.style.display = "flex";
+      } else {
+        // 설정 모달이 없으면 새로 생성
+        setTimeout(() => {
+          showSettingsModal();
+        }, 100);
+      }
+    }
+  };
+  
   // 닫기 버튼
   const closeBtn = document.createElement("button");
   closeBtn.className = "report-modal-close";
   closeBtn.innerHTML = "×";
-  closeBtn.addEventListener("click", () => {
-    modal.remove();
-  });
+  closeBtn.addEventListener("click", closeModal);
   
   // 오버레이 클릭 시 닫기
   modal.addEventListener("click", (e) => {
     if (e.target === modal) {
-      modal.remove();
+      closeModal();
     }
   });
   
   // ESC 키로 닫기
   const handleEsc = (e) => {
     if (e.key === "Escape") {
-      modal.remove();
+      closeModal();
       document.removeEventListener("keydown", handleEsc);
     }
   };
@@ -2558,8 +2573,12 @@ async function loadReportsSettings(container) {
   selectAll('[data-action="view"]').forEach(btn => {
     btn.addEventListener('click', () => {
       const reportId = btn.dataset.reportId;
-      loadSavedReport(reportId);
-      select("#settings-modal")?.remove();
+      // 설정 모달을 숨기고 리포트 모달 표시 (닫을 때 다시 표시됨)
+      const settingsModal = select("#settings-modal");
+      if (settingsModal) {
+        settingsModal.style.display = "none";
+      }
+      loadSavedReport(reportId, true); // 설정 모달에서 열었음을 표시
     });
   });
   
