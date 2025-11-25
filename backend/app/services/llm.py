@@ -55,6 +55,8 @@ def _format_report_prompt(month: str, visit_count: int, top_tags: str, emotion_s
             preference_section += f"- 커플이 좋아하는 태그: {pref_tags}\n"
         if pref_emotions:
             preference_section += f"- 커플이 원하는 감정 목표: {pref_emotions}\n"
+        if couple_budget:
+            preference_section += f"- 커플의 선호 예산 범위: {budget_label}\n"
         if plan_emotions:
             preference_section += f"- 플래너에서 설정한 감정 목표: {plan_emotions}\n"
     
