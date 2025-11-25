@@ -1301,8 +1301,9 @@ function renderChallengesView() {
           <span class="inline-chip">${place.badge_reward} 배지</span>
           <span class="inline-chip">${place.points_reward} 포인트</span>
         </div>
-        <div style="margin-top: 0.5rem;">
+        <div style="margin-top: 0.5rem; display: flex; gap: 0.5rem; flex-wrap: wrap;">
           ${actionButton}
+          <button class="primary-outline" data-action="show-on-map" data-place-id="${place.id}" data-latitude="${place.latitude}" data-longitude="${place.longitude}" data-place-name="${place.name}">지도에서 보기</button>
         </div>
       `;
       
@@ -1322,6 +1323,15 @@ function renderChallengesView() {
   
   selectAll('[data-action="review"]').forEach((btn) => {
     btn.addEventListener("click", () => handleReviewWrite(btn.dataset.placeId));
+  });
+    
+  selectAll('[data-action="show-on-map"]').forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const latitude = parseFloat(btn.dataset.latitude);
+      const longitude = parseFloat(btn.dataset.longitude);
+      const name = btn.dataset.placeName;
+      showPlaceMarker(latitude, longitude, name);
+    });
   });
 }
 
