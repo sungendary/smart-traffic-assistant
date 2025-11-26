@@ -337,8 +337,7 @@ function renderRightPanel() {
     if (!state.report) {
       summaryCard.innerHTML += `<p class="section-caption">리포트를 불러오면 커플 매니저에게 편지를 부탁할 수 있어요.</p>`;
       container.appendChild(summaryCard);
-      return;
-    }
+    } else {
     const summaryBody = document.createElement("div");
     summaryBody.className = "report-summary-text";
     // 마크다운 **텍스트**를 <strong>텍스트</strong>로 변환하고 문단 구분
@@ -472,101 +471,13 @@ function renderRightPanel() {
     if (summaryBtn) {
       summaryBtn.addEventListener("click", () => loadReportSummary(state.report?.month));
     }
+    }
     
     // 저장된 리포트 섹션을 칭찬편지 아래에 추가 (달력 형태)
     const savedReportsCard = document.createElement("div");
     savedReportsCard.className = "card";
     savedReportsCard.style.marginTop = "1.5rem";
     
-    // 배지 표시 (우측)
-    const badgesCard = document.createElement("div");
-    badgesCard.className = "card";
-    const badges = state.challengeStatus?.badges || [];
-    const tier = state.challengeStatus?.tier || 1;
-    const tierName = state.challengeStatus?.tier_name || "새싹 커플";
-    const badgeCount = state.challengeStatus?.badge_count !== undefined ? state.challengeStatus.badge_count : badges.length;
-    const nextTierBadgesNeeded = state.challengeStatus?.next_tier_badges_needed;
-    
-    // 디버깅: 티어 정보 확인
-    console.log("티어 정보:", { tier, tierName, badgeCount, nextTierBadgesNeeded, badges });
-    
-    // 티어별 최소 배지 개수 계산 (진행도 표시용)
-    const getTierRange = (tierNum) => {
-      if (tierNum === 1) return { min: 0, max: 4 };
-      if (tierNum === 2) return { min: 5, max: 9 };
-      if (tierNum === 3) return { min: 10, max: 14 };
-      if (tierNum === 4) return { min: 15, max: 19 };
-      return { min: 20, max: null };
-    };
-    
-    const currentTierRange = getTierRange(tier);
-    const isMaxTier = tier === 5;
-    let progressPercentage = 0;
-    let progressText = "";
-    
-    if (isMaxTier) {
-      progressPercentage = 100;
-      progressText = "최고 티어 달성!";
-    } else {
-      const currentProgress = badgeCount - currentTierRange.min;
-      const tierRange = currentTierRange.max - currentTierRange.min + 1;
-      progressPercentage = Math.min(100, (currentProgress / tierRange) * 100);
-      progressText = `${badgeCount}개 / ${currentTierRange.max + 1}개`;
-    }
-    
-    // 티어 정보 섹션
-    let tierInfoHtml = `
-      <div style="background: linear-gradient(135deg,rgb(212, 172, 199) 0%,rgb(214, 55, 166) 100%); color: white; padding: 1.5rem; border-radius: 0.5rem; margin-bottom: 1.5rem;">
-        <div style="text-align: center;">
-          <div style="font-size: 0.85rem; opacity: 0.9; margin-bottom: 0.5rem;">현재 단계</div>
-          <div style="font-size: 2rem; font-weight: bold; margin-bottom: 0.3rem;">Level ${tier}</div>
-          <div style="font-size: 1.3rem; font-weight: 600; margin-bottom: 0.8rem;">💑${tierName}</div>
-          <div style="font-size: 0.9rem; opacity: 0.95; margin-bottom: 1rem;">보유 배지: <strong>${badgeCount}개</strong></div>
-          
-          ${isMaxTier
-            ? `
-              <div style="background: rgba(255, 255, 255, 0.2); border-radius: 0.4rem; padding: 0.8rem; margin-top: 1rem;">
-                <div style="font-size: 0.9rem; font-weight: 600;">${progressText}</div>
-              </div>
-            `
-            : `
-              <div style="background: rgba(255, 255, 255, 0.2); border-radius: 0.4rem; padding: 0.8rem; margin-top: 1rem;">
-                <div style="font-size: 0.85rem; opacity: 0.95; margin-bottom: 0.5rem;">다음 단계까지</div>
-                <div style="font-size: 1.1rem; font-weight: bold; margin-bottom: 0.5rem;">${nextTierBadgesNeeded !== null && nextTierBadgesNeeded !== undefined ? nextTierBadgesNeeded : (currentTierRange.max + 1 - badgeCount)}개 더 필요</div>
-                <div style="background: rgba(255, 255, 255, 0.3); border-radius: 0.3rem; height: 8px; overflow: hidden;">
-                  <div style="background: white; height: 100%; width: ${progressPercentage}%; transition: width 0.3s ease;"></div>
-                </div>
-                <div style="font-size: 0.75rem; opacity: 0.9; margin-top: 0.4rem;">${progressText}</div>
-              </div>
-            `
-          }
-        </div>
-      </div>
-    `;
-    
-    // 배지 현황 섹션
-    let badgeStatusHtml = `
-      <div style="margin-bottom: 1.5rem;">
-        <h3 style="font-size: 1rem; font-weight: 600; margin-bottom: 0.8rem; color: #333;">배지 현황</h3>
-        <div style="background: #f5f5f5; border-radius: 0.5rem; padding: 1rem; margin-bottom: 1rem;">
-          <div style="font-size: 0.9rem; color: #666; margin-bottom: 0.5rem;">획득한 배지</div>
-          <div style="font-size: 1.5rem; font-weight: bold; color: #333;">${badgeCount}개</div>
-        </div>
-        ${badges.length > 0
-          ? `
-            <div style="background: #f9f9f9; border-radius: 0.5rem; padding: 1rem;">
-              <div style="font-size: 0.9rem; color: #666; margin-bottom: 0.8rem;">배지 목록</div>
-              <div style="display: flex; flex-wrap: wrap; gap: 0.5rem; justify-content: flex-start;">
-                ${badges.map((badge) => `<span class="inline-chip" style="font-size: 1.8rem; padding: 0.6rem; background: white; border: 1px solid #e0e0e0;">${badge}</span>`).join("")}
-              </div>
-            </div>
-          `
-          : `
-            <div style="background: #f9f9f9; border-radius: 0.5rem; padding: 1.5rem; text-align: center;">
-              <p class="section-caption" style="color: #999; margin: 0;">아직 획득한 배지가 없습니다.<br/>챌린지를 완료하여 배지를 획득해보세요!</p>
-            </div>
-          `}
-    `;
     // 리포트가 있는 날짜를 맵으로 저장 (날짜 문자열 -> 리포트 배열)
     const reportsByDate = new Map();
     if (state.savedReports && state.savedReports.length > 0) {
@@ -596,14 +507,6 @@ function renderRightPanel() {
     
     let calendarHTML = `
       <h2 class="section-title">저장된 리포트</h2>
-      <div style="margin-bottom: 1rem;">
-        <form id="report-form" class="stack" style="margin-bottom: 1rem;">
-          <input type="month" name="month" value="${state.report?.month || new Date().toISOString().slice(0, 7)}" />
-          <button type="submit" class="primary-btn" id="report-submit-btn" ${state.isGeneratingReport ? 'disabled' : ''}>
-            ${state.isGeneratingReport ? '생성 중...' : '리포트 확인하기'}
-          </button>
-        </form>
-      </div>
       <div class="calendar-container">
         <div class="calendar-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
           <button class="calendar-nav-btn" id="calendar-prev" style="background: none; border: none; font-size: 1.2rem; cursor: pointer; color: var(--accent); padding: 0.5rem;">‹</button>
@@ -652,13 +555,6 @@ function renderRightPanel() {
       </div>
     `;
     
-    badgesCard.innerHTML = `
-      <h2 class="section-title">커플 배지</h2>
-      ${tierInfoHtml}
-      ${badgeStatusHtml}
-    `;
-    wrapper.appendChild(badgesCard);
-    
     savedReportsCard.innerHTML = calendarHTML;
     container.appendChild(savedReportsCard);
     
@@ -678,9 +574,6 @@ function renderRightPanel() {
       `;
       document.head.appendChild(style);
     }
-    
-    // 리포트 확인 폼 이벤트
-    select("#report-form")?.addEventListener("submit", handleReportForm);
     
     // 달력 네비게이션 이벤트
     select("#calendar-prev")?.addEventListener("click", () => {
