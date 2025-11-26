@@ -1030,12 +1030,17 @@ function renderReportsView() {
   wrapper.className = "stack";
 
   const report = state.report;
+  // 데이터 출처: backend/app/services/reports.py의 build_monthly_report 함수
+  // - emotion_stats: visits 컬렉션의 emotion 필드에서 감정별 카운트 (감정 분포)
+  // - top_tags: visits 컬렉션의 tags 필드에서 가장 많이 나온 상위 3개 태그 (인기 태그)
+  // - visit_count: visits 컬렉션의 해당 월 문서 개수 (created_at 기준)
+  // - challenge_progress: challenges 컬렉션에서 가져온 챌린지 진행 상황
   const entries = Object.entries(report.emotion_stats || {});
-  const topEmotion = entries.length ? entries.sort((a, b) => b[1] - a[1])[0] : null;
-  const preferredTags = report.preferred_tags || [];
-  const preferredEmotionGoals = report.preferred_emotion_goals || [];
-  const preferredBudget = report.preferred_budget || "medium";
-  const planEmotionGoals = report.plan_emotion_goals || [];
+  const topEmotion = entries.length ? entries.sort((a, b) => b[1] - a[1])[0] : null;  // 주요 감정: emotion_stats에서 가장 많이 나온 감정
+  const preferredTags = report.preferred_tags || [];  // couples 컬렉션의 preferences.tags
+  const preferredEmotionGoals = report.preferred_emotion_goals || [];  // couples 컬렉션의 preferences.emotion_goals
+  const preferredBudget = report.preferred_budget || "medium";  // couples 컬렉션의 preferences.budget
+  const planEmotionGoals = report.plan_emotion_goals || [];  // plans 컬렉션의 emotion_goal 필드
   
   // 예산 범위를 한글로 변환
   const budgetLabels = {
@@ -1074,19 +1079,49 @@ function renderReportsView() {
       </div>
     </div>
     <div style="margin-top: 1rem;">
-      <h3 style="font-size: 0.95rem; margin-bottom: 0.5rem; color: var(--text-muted);">인기 태그</h3>
-      <div class="inline-chips">
-        ${(top_tags || []).length > 0 ? top_tags.map(tag => `<span class="inline-chip">${tag}</span>`).join('') : '<span class="section-caption">태그 없음</span>'}
-      </div>
-    </div>
-    <div style="margin-top: 1rem;">
       <h3 style="font-size: 0.95rem; margin-bottom: 0.5rem; color: var(--text-muted);">감정 분포</h3>
-      <ul class="tip-list">
-        ${Object.entries(emotion_stats || {}).map(([emotion, count]) => {
-          const percentage = totalEmotions > 0 ? Math.round((count / totalEmotions) * 100) : 0;
-          return `<li>${emotion}: ${count}회 (${percentage}%)</li>`;
-        }).join('')}
-      </ul>
+      ${Object.keys(emotion_stats || {}).length > 0 ? `
+        <div style="margin-top: 1rem;">
+          <div style="display: flex; justify-content: center; margin-bottom: 1.5rem;">
+            <div style="position: relative; width: 150px; height: 150px;">
+              <svg viewBox="0 0 100 100" style="transform: rotate(-90deg); width: 100%; height: 100%;">
+                ${(() => {
+                  const entries = Object.entries(emotion_stats).sort((a, b) => b[1] - a[1]);
+                  const colors = ['#ff5a99', '#667eea', '#764ba2', '#f093fb', '#4facfe', '#00f2fe', '#43e97b', '#fa709a'];
+                  let currentAngle = 0;
+                  return entries.map(([emotion, count], index) => {
+                    const percentage = totalEmotions > 0 ? (count / totalEmotions) * 100 : 0;
+                    const angle = (percentage / 100) * 360;
+                    const largeArc = angle > 180 ? 1 : 0;
+                    const x1 = 50 + 50 * Math.cos((currentAngle * Math.PI) / 180);
+                    const y1 = 50 + 50 * Math.sin((currentAngle * Math.PI) / 180);
+                    const x2 = 50 + 50 * Math.cos(((currentAngle + angle) * Math.PI) / 180);
+                    const y2 = 50 + 50 * Math.sin(((currentAngle + angle) * Math.PI) / 180);
+                    const color = colors[index % colors.length];
+                    const path = `M 50 50 L ${x1} ${y1} A 50 50 0 ${largeArc} 1 ${x2} ${y2} Z`;
+                    currentAngle += angle;
+                    return `<path d="${path}" fill="${color}" stroke="#fff" stroke-width="1" />`;
+                  }).join('');
+                })()}
+              </svg>
+            </div>
+          </div>
+          <div style="display: flex; flex-wrap: wrap; gap: 1rem; justify-content: center;">
+            ${Object.entries(emotion_stats).sort((a, b) => b[1] - a[1]).map(([emotion, count], index) => {
+              const percentage = totalEmotions > 0 ? Math.round((count / totalEmotions) * 100) : 0;
+              const colors = ['#ff5a99', '#667eea', '#764ba2', '#f093fb', '#4facfe', '#00f2fe', '#43e97b', '#fa709a'];
+              const color = colors[index % colors.length];
+              return `
+                <div style="display: flex; align-items: center; gap: 0.5rem; white-space: nowrap;">
+                  <div style="width: 12px; height: 12px; border-radius: 2px; background: ${color}; flex-shrink: 0;"></div>
+                  <span style="font-size: 0.9rem; color: var(--text);">${emotion}</span>
+                  <span style="font-size: 0.85rem; color: var(--text-muted);">${count}회 (${percentage}%)</span>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </div>
+      ` : '<p class="section-caption">감정 데이터가 없습니다.</p>'}
     </div>
     <div style="margin-top: 1.5rem; padding-top: 1.5rem; border-top: 2px solid var(--border);">
       <h3 style="font-size: 1rem; margin-bottom: 1rem; color: var(--accent); font-weight: 600; display: flex; align-items: center; gap: 0.5rem;">
@@ -1810,10 +1845,15 @@ function showReportModal(report, fromSettings = false) {
   document.addEventListener("keydown", handleEsc);
   
   // 리포트 내용
+  // 데이터 출처: backend/app/services/reports.py의 build_monthly_report 함수
+  // - visit_count: visits 컬렉션의 해당 월 문서 개수 (created_at 기준)
+  // - emotion_stats: visits 컬렉션의 emotion 필드에서 감정별 카운트
+  // - top_tags: visits 컬렉션의 tags 필드에서 가장 많이 나온 상위 3개 태그
+  // - challenge_progress: challenges 컬렉션에서 가져온 챌린지 진행 상황
   const month = report.month || new Date().toISOString().slice(0, 7);
   const reportName = report.name || `${month} 리포트`;
   const entries = Object.entries(report.emotion_stats || {});
-  const topEmotion = entries.length ? entries.sort((a, b) => b[1] - a[1])[0] : null;
+  const topEmotion = entries.length ? entries.sort((a, b) => b[1] - a[1])[0] : null;  // 주요 감정: emotion_stats에서 가장 많이 나온 감정
   const { visit_count, emotion_stats, top_tags, challenge_progress } = report;
   const totalEmotions = Object.values(emotion_stats || {}).reduce((a, b) => a + b, 0);
   const completedChallenges = (challenge_progress || []).filter(c => c.current >= c.goal).length;
@@ -1890,24 +1930,49 @@ function showReportModal(report, fromSettings = false) {
       ` : ''}
     </div>
     
-    ${top_tags && top_tags.length > 0 ? `
-    <div class="report-memo-tags">
-      <h3 class="report-memo-section-subtitle">인기 태그</h3>
-      <div class="inline-chips">
-        ${top_tags.map(tag => `<span class="inline-chip">${tag}</span>`).join('')}
-      </div>
-    </div>
-    ` : ''}
-    
     ${Object.keys(emotion_stats || {}).length > 0 ? `
     <div class="report-memo-emotions">
       <h3 class="report-memo-section-subtitle">감정 분포</h3>
-      <ul class="tip-list">
-        ${Object.entries(emotion_stats).map(([emotion, count]) => {
-          const percentage = totalEmotions > 0 ? Math.round((count / totalEmotions) * 100) : 0;
-          return `<li>${emotion}: ${count}회 (${percentage}%)</li>`;
-        }).join('')}
-      </ul>
+      <div style="margin-top: 1rem;">
+        <div style="display: flex; justify-content: center; margin-bottom: 1.5rem;">
+          <div style="position: relative; width: 180px; height: 180px;">
+            <svg viewBox="0 0 100 100" style="transform: rotate(-90deg); width: 100%; height: 100%;">
+              ${(() => {
+                const entries = Object.entries(emotion_stats).sort((a, b) => b[1] - a[1]);
+                const colors = ['#ff5a99', '#667eea', '#764ba2', '#f093fb', '#4facfe', '#00f2fe', '#43e97b', '#fa709a'];
+                let currentAngle = 0;
+                return entries.map(([emotion, count], index) => {
+                  const percentage = totalEmotions > 0 ? (count / totalEmotions) * 100 : 0;
+                  const angle = (percentage / 100) * 360;
+                  const largeArc = angle > 180 ? 1 : 0;
+                  const x1 = 50 + 50 * Math.cos((currentAngle * Math.PI) / 180);
+                  const y1 = 50 + 50 * Math.sin((currentAngle * Math.PI) / 180);
+                  const x2 = 50 + 50 * Math.cos(((currentAngle + angle) * Math.PI) / 180);
+                  const y2 = 50 + 50 * Math.sin(((currentAngle + angle) * Math.PI) / 180);
+                  const color = colors[index % colors.length];
+                  const path = `M 50 50 L ${x1} ${y1} A 50 50 0 ${largeArc} 1 ${x2} ${y2} Z`;
+                  currentAngle += angle;
+                  return `<path d="${path}" fill="${color}" stroke="#fff" stroke-width="1.5" />`;
+                }).join('');
+              })()}
+            </svg>
+          </div>
+        </div>
+        <div style="display: flex; flex-wrap: wrap; gap: 1rem; justify-content: center;">
+          ${Object.entries(emotion_stats).sort((a, b) => b[1] - a[1]).map(([emotion, count], index) => {
+            const percentage = totalEmotions > 0 ? Math.round((count / totalEmotions) * 100) : 0;
+            const colors = ['#ff5a99', '#667eea', '#764ba2', '#f093fb', '#4facfe', '#00f2fe', '#43e97b', '#fa709a'];
+            const color = colors[index % colors.length];
+            return `
+              <div style="display: flex; align-items: center; gap: 0.5rem; white-space: nowrap;">
+                <div style="width: 14px; height: 14px; border-radius: 3px; background: ${color}; flex-shrink: 0;"></div>
+                <span style="font-size: 0.95rem; color: var(--text); font-weight: 500;">${emotion}</span>
+                <span style="font-size: 0.85rem; color: var(--text-muted);">${count}회 (${percentage}%)</span>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      </div>
     </div>
     ` : ''}
   `;
