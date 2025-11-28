@@ -746,22 +746,22 @@ function renderRightPanel() {
           <div style="font-size: 0.85rem; opacity: 0.9; margin-bottom: 0.5rem;">현재 단계</div>
           <div style="font-size: 2rem; font-weight: bold; margin-bottom: 0.3rem;">Level ${tier}</div>
           <div style="font-size: 1.3rem; font-weight: 600; margin-bottom: 0.8rem;">💑${tierName}</div>
-          <div style="font-size: 0.9rem; opacity: 0.95; margin-bottom: 1rem;">보유 배지: <strong>${badgeCount}개</strong></div>
+          <div style="font-size: 0.9rem; opacity: 0.95; margin-bottom: 1.5rem;">보유 배지: <strong>${badgeCount}개</strong></div>
           
           ${isMaxTier
             ? `
-              <div style="background: rgba(255, 255, 255, 0.2); border-radius: 0.4rem; padding: 0.8rem; margin-top: 1rem;">
-                <div style="font-size: 0.9rem; font-weight: 600;">${progressText}</div>
+              <div style="background: rgba(255, 255, 255, 0.25); border-radius: 0.5rem; padding: 1rem; margin-top: 0.5rem; backdrop-filter: blur(10px);">
+                <div style="font-size: 0.95rem; font-weight: 600; opacity: 0.95;">${progressText}</div>
               </div>
             `
             : `
-              <div style="background: rgba(255, 255, 255, 0.2); border-radius: 0.4rem; padding: 0.8rem; margin-top: 1rem;">
-                <div style="font-size: 0.85rem; opacity: 0.95; margin-bottom: 0.5rem;">다음 단계까지</div>
-                <div style="font-size: 1.1rem; font-weight: bold; margin-bottom: 0.5rem;">${nextTierBadgesNeeded !== null && nextTierBadgesNeeded !== undefined ? nextTierBadgesNeeded : (currentTierRange.max + 1 - badgeCount)}개 더 필요</div>
-                <div style="background: rgba(255, 255, 255, 0.3); border-radius: 0.3rem; height: 8px; overflow: hidden; margin-bottom: 0.4rem;">
-                  <div class="challenge-progress-fill" style="width: ${progressPercentage}%;"></div>
+              <div style="background: rgba(255, 255, 255, 0.25); border-radius: 0.5rem; padding: 1rem; margin-top: 0.5rem; backdrop-filter: blur(10px);">
+                <div style="font-size: 0.85rem; opacity: 0.9; margin-bottom: 0.6rem; letter-spacing: 0.5px;">다음 단계까지</div>
+                <div style="font-size: 1.2rem; font-weight: bold; margin-bottom: 0.8rem; opacity: 0.95;">${nextTierBadgesNeeded !== null && nextTierBadgesNeeded !== undefined ? nextTierBadgesNeeded : (currentTierRange.max + 1 - badgeCount)}개 더 필요</div>
+                <div style="background: rgba(255, 255, 255, 0.35); border-radius: 0.4rem; height: 10px; overflow: hidden; margin-bottom: 0.5rem; box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);">
+                  <div class="challenge-progress-fill" style="width: ${progressPercentage}%; height: 100%; background: linear-gradient(90deg, rgba(255,255,255,0.8), rgba(255,255,255,0.95)); border-radius: 0.4rem; transition: width 0.3s ease;"></div>
                 </div>
-                <div style="font-size: 0.75rem; opacity: 0.9;">${progressText}</div>
+                <div style="font-size: 0.8rem; opacity: 0.85;">${progressText}</div>
               </div>
             `
           }

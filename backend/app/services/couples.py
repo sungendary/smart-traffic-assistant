@@ -31,13 +31,7 @@ def calculate_tier(badge_count: int) -> dict[str, int | str | None]:
         - tier_name: 티어 이름
         - next_tier_badges_needed: 다음 티어까지 필요한 배지 개수 (마지막 티어면 None)
     """
-    if badge_count == 0:
-        return {
-            "tier": 1,
-            "tier_name": "새싹 커플",
-            "next_tier_badges_needed": 1,
-        }
-    elif 1 <= badge_count <= 4:
+    if 0 <= badge_count <= 4:
         return {
             "tier": 1,
             "tier_name": "새싹 커플",
