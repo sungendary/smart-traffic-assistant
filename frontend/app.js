@@ -27,6 +27,9 @@ const state = {
   calendarMonth: null, // 달력 표시 월 (년 * 12 + 월)
   savingReportName: false, // 리포트 이름 저장 중 상태
   reportNameSaveStatus: null, // 리포트 이름 저장 상태: 'success' | 'error' | null
+  challengeFilter: "all", // 챌린지 필터: 'all' | 'pending' | 'verified' | 'completed'
+  challengeCategoryFilter: "all", // 카테고리 필터: 'all' | category_id
+  challengeSort: "name", // 정렬: 'name' | 'completed' | 'points'
 };
 
 function handleLogout() {
@@ -611,21 +614,97 @@ function renderRightPanel() {
     const wrapper = document.createElement("div");
     wrapper.className = "stack";
 
-    // 포인트 정보 카드
+    // 커플 진행 상황 대시보드
+    const coupleProgress = calculateCoupleProgress();
+    const coupleStatsCard = document.createElement("div");
+    coupleStatsCard.className = "card couple-stats";
+    
+    const members = state.couple?.members || [];
+    const memberAvatars = members.slice(0, 2).map(m => {
+      const initial = (m.nickname || m.email || "?").charAt(0).toUpperCase();
+      return `<div class="couple-member-avatar">${initial}</div>`;
+    }).join("");
+    
+    const coupleProgressHtml = `
+      <div class="couple-stats-header">
+        <h2 class="couple-stats-title">💕 커플 진행 상황</h2>
+      </div>
+      ${members.length >= 2 ? `
+        <div class="couple-members">
+          ${memberAvatars}
+        </div>
+      ` : ''}
+      <div class="couple-progress-circle">
+        <svg viewBox="0 0 100 100">
+          <circle cx="50" cy="50" r="45" fill="none" stroke="rgba(255, 90, 153, 0.2)" stroke-width="8"/>
+          <circle 
+            cx="50" 
+            cy="50" 
+            r="45" 
+            fill="none" 
+            stroke="var(--accent)" 
+            stroke-width="8"
+            stroke-dasharray="${2 * Math.PI * 45}"
+            stroke-dashoffset="${2 * Math.PI * 45 * (1 - coupleProgress.completionRate / 100)}"
+            stroke-linecap="round"
+            style="transition: stroke-dashoffset 0.6s ease;"
+          />
+        </svg>
+        <div class="couple-progress-text">
+          <div class="couple-progress-percentage">${coupleProgress.completionRate}%</div>
+          <div class="couple-progress-label">완료율</div>
+        </div>
+      </div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1rem;">
+        <div style="text-align: center; padding: 1rem; background: white; border-radius: 12px; border: 1px solid var(--border);">
+          <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem;">완료한 챌린지</div>
+          <div style="font-size: 1.8rem; font-weight: 700; color: var(--accent);">${coupleProgress.completedChallenges}</div>
+          <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">/ ${coupleProgress.totalChallenges}개</div>
+        </div>
+        <div style="text-align: center; padding: 1rem; background: white; border-radius: 12px; border: 1px solid var(--border);">
+          <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem;">커플 포인트</div>
+          <div style="font-size: 1.8rem; font-weight: 700; color: var(--accent);">${coupleProgress.totalPoints.toLocaleString()}</div>
+        </div>
+      </div>
+    `;
+    coupleStatsCard.innerHTML = coupleProgressHtml;
+    wrapper.appendChild(coupleStatsCard);
+
+    // 포인트 정보 카드 개선
     const pointsCard = document.createElement("div");
     pointsCard.className = "card";
     const points = state.challengeStatus?.points || 0;
+    const stats = calculateChallengeStats();
+    const nextMilestone = Math.ceil(points / 1000) * 1000;
+    const pointsToNext = nextMilestone - points;
+    
     pointsCard.innerHTML = `
-      <h2 class="section-title">포인트</h2>
-      <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 1.5rem; border-radius: 0.5rem; text-align: center;">
-        <div style="font-size: 0.85rem; opacity: 0.9; margin-bottom: 0.5rem;">보유 포인트</div>
-        <div style="font-size: 2.5rem; font-weight: bold; margin-bottom: 0.5rem;">${points.toLocaleString()}</div>
-        <div style="font-size: 0.9rem; opacity: 0.95;">챌린지를 완료하여 포인트를 획득하세요!</div>
+      <h2 class="section-title">⭐ 포인트</h2>
+      <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 1.5rem; border-radius: 0.5rem; text-align: center; position: relative; overflow: hidden;">
+        <div style="position: absolute; top: -50%; right: -50%; width: 200%; height: 200%; background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%); animation: pulse 3s ease-in-out infinite;"></div>
+        <div style="position: relative; z-index: 1;">
+          <div style="font-size: 0.85rem; opacity: 0.9; margin-bottom: 0.5rem;">보유 포인트</div>
+          <div style="font-size: 2.5rem; font-weight: bold; margin-bottom: 0.5rem; animation: countUp 0.6s ease;">${points.toLocaleString()}</div>
+          ${pointsToNext > 0 ? `
+            <div style="font-size: 0.8rem; opacity: 0.9; margin-top: 0.5rem; padding-top: 0.75rem; border-top: 1px solid rgba(255,255,255,0.2);">
+              다음 목표까지 <strong>${pointsToNext.toLocaleString()}점</strong>
+            </div>
+          ` : ''}
+        </div>
       </div>
+      ${stats.total > 0 ? `
+        <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border);">
+          <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem;">챌린지 완료로 획득</div>
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-size: 0.9rem; color: var(--text);">완료한 챌린지</span>
+            <span style="font-size: 1rem; font-weight: 600; color: var(--accent);">${stats.completed}개</span>
+          </div>
+        </div>
+      ` : ''}
     `;
     wrapper.appendChild(pointsCard);
 
-    // 배지 및 티어 정보 카드
+    // 배지 및 티어 정보 카드 개선
     const badgesCard = document.createElement("div");
     badgesCard.className = "card";
     const badges = state.challengeStatus?.badges || [];
@@ -658,10 +737,12 @@ function renderRightPanel() {
       progressText = `${badgeCount}개 / ${currentTierRange.max + 1}개`;
     }
     
-    // 티어 정보 섹션
+    // 티어 정보 섹션 개선
     let tierInfoHtml = `
-      <div style="background: linear-gradient(135deg,rgb(212, 172, 199) 0%,rgb(214, 55, 166) 100%); color: white; padding: 1.5rem; border-radius: 0.5rem; margin-bottom: 1.5rem;">
-        <div style="text-align: center;">
+      <div style="background: linear-gradient(135deg,rgb(212, 172, 199) 0%,rgb(214, 55, 166) 100%); color: white; padding: 1.5rem; border-radius: 0.5rem; margin-bottom: 1.5rem; position: relative; overflow: hidden;">
+        <div style="position: absolute; top: -20px; right: -20px; width: 100px; height: 100px; background: rgba(255,255,255,0.1); border-radius: 50%;"></div>
+        <div style="position: absolute; bottom: -30px; left: -30px; width: 80px; height: 80px; background: rgba(255,255,255,0.08); border-radius: 50%;"></div>
+        <div style="text-align: center; position: relative; z-index: 1;">
           <div style="font-size: 0.85rem; opacity: 0.9; margin-bottom: 0.5rem;">현재 단계</div>
           <div style="font-size: 2rem; font-weight: bold; margin-bottom: 0.3rem;">Level ${tier}</div>
           <div style="font-size: 1.3rem; font-weight: 600; margin-bottom: 0.8rem;">💑${tierName}</div>
@@ -677,10 +758,10 @@ function renderRightPanel() {
               <div style="background: rgba(255, 255, 255, 0.2); border-radius: 0.4rem; padding: 0.8rem; margin-top: 1rem;">
                 <div style="font-size: 0.85rem; opacity: 0.95; margin-bottom: 0.5rem;">다음 단계까지</div>
                 <div style="font-size: 1.1rem; font-weight: bold; margin-bottom: 0.5rem;">${nextTierBadgesNeeded !== null && nextTierBadgesNeeded !== undefined ? nextTierBadgesNeeded : (currentTierRange.max + 1 - badgeCount)}개 더 필요</div>
-                <div style="background: rgba(255, 255, 255, 0.3); border-radius: 0.3rem; height: 8px; overflow: hidden;">
-                  <div style="background: white; height: 100%; width: ${progressPercentage}%; transition: width 0.3s ease;"></div>
+                <div style="background: rgba(255, 255, 255, 0.3); border-radius: 0.3rem; height: 8px; overflow: hidden; margin-bottom: 0.4rem;">
+                  <div class="challenge-progress-fill" style="width: ${progressPercentage}%;"></div>
                 </div>
-                <div style="font-size: 0.75rem; opacity: 0.9; margin-top: 0.4rem;">${progressText}</div>
+                <div style="font-size: 0.75rem; opacity: 0.9;">${progressText}</div>
               </div>
             `
           }
@@ -688,20 +769,24 @@ function renderRightPanel() {
       </div>
     `;
     
-    // 배지 현황 섹션
+    // 배지 갤러리 스타일로 개선
     let badgeStatusHtml = `
       <div style="margin-bottom: 1.5rem;">
         <h3 style="font-size: 1rem; font-weight: 600; margin-bottom: 0.8rem; color: #333;">배지 현황</h3>
-        <div style="background: #f5f5f5; border-radius: 0.5rem; padding: 1rem; margin-bottom: 1rem;">
-          <div style="font-size: 0.9rem; color: #666; margin-bottom: 0.5rem;">획득한 배지</div>
-          <div style="font-size: 1.5rem; font-weight: bold; color: #333;">${badgeCount}개</div>
+        <div style="background: linear-gradient(135deg, rgba(255, 90, 153, 0.05), rgba(255, 128, 178, 0.05)); border-radius: 0.5rem; padding: 1rem; margin-bottom: 1rem; border: 1px solid rgba(255, 90, 153, 0.15);">
+          <div style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 0.5rem;">획득한 배지</div>
+          <div style="font-size: 1.5rem; font-weight: bold; color: var(--accent);">${badgeCount}개</div>
         </div>
         ${badges.length > 0
           ? `
-            <div style="background: #f9f9f9; border-radius: 0.5rem; padding: 1rem;">
-              <div style="font-size: 0.9rem; color: #666; margin-bottom: 0.8rem;">배지 목록</div>
-              <div style="display: flex; flex-wrap: wrap; gap: 0.5rem; justify-content: flex-start;">
-                ${badges.map((badge) => `<span class="inline-chip" style="font-size: 1.8rem; padding: 0.6rem; background: white; border: 1px solid #e0e0e0;">${badge}</span>`).join("")}
+            <div>
+              <div style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 0.8rem; font-weight: 600;">배지 갤러리</div>
+              <div class="badge-gallery">
+                ${badges.map((badge, index) => `
+                  <div class="badge-item" title="${badge} (${index + 1}번째 획득)">
+                    ${badge}
+                  </div>
+                `).join("")}
               </div>
             </div>
           `
@@ -714,7 +799,7 @@ function renderRightPanel() {
     `;
     
     badgesCard.innerHTML = `
-      <h2 class="section-title">커플 배지</h2>
+      <h2 class="section-title">🏆 커플 배지</h2>
       ${tierInfoHtml}
       ${badgeStatusHtml}
     `;
@@ -1176,6 +1261,133 @@ function renderChallengesView() {
   const wrapper = document.createElement("div");
   wrapper.className = "stack";
 
+  // 챌린지 진행 상황 요약 카드
+  if (state.challengeStatus && state.challengeStatus.challenge_places && state.challengeStatus.challenge_places.length > 0) {
+    const stats = calculateChallengeStats();
+    const categoryStats = calculateCategoryStats();
+    
+    const summaryCard = document.createElement("div");
+    summaryCard.className = "card challenge-summary-card";
+    
+    const categoryStatsHtml = Object.keys(categoryStats).length > 0 ? `
+      <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border);">
+        <h3 style="font-size: 0.95rem; font-weight: 600; color: var(--text); margin-bottom: 0.75rem;">카테고리별 완료율</h3>
+        <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+          ${Object.entries(categoryStats).map(([categoryId, cat]) => `
+            <div style="display: flex; align-items: center; justify-content: space-between; padding: 0.5rem; background: white; border-radius: 8px; border: 1px solid var(--border);">
+              <span style="font-size: 0.85rem; color: var(--text);">${cat.name}</span>
+              <div style="display: flex; align-items: center; gap: 0.5rem;">
+                <div style="width: 80px; height: 6px; background: var(--surface-muted); border-radius: 999px; overflow: hidden;">
+                  <div class="challenge-progress-fill" style="width: ${cat.completionRate}%; background: linear-gradient(90deg, var(--accent), #ff80b2);"></div>
+                </div>
+                <span style="font-size: 0.85rem; font-weight: 600; color: var(--accent); min-width: 35px; text-align: right;">${cat.completionRate}%</span>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    ` : '';
+    
+    summaryCard.innerHTML = `
+      <h2 class="section-title">📊 챌린지 진행 상황</h2>
+      <div class="challenge-summary-stats">
+        <div class="challenge-summary-stat">
+          <div class="challenge-summary-stat-label">전체</div>
+          <div class="challenge-summary-stat-value">${stats.total}</div>
+        </div>
+        <div class="challenge-summary-stat">
+          <div class="challenge-summary-stat-label">완료</div>
+          <div class="challenge-summary-stat-value" style="color: #4caf50;">${stats.completed}</div>
+        </div>
+        <div class="challenge-summary-stat">
+          <div class="challenge-summary-stat-label">진행중</div>
+          <div class="challenge-summary-stat-value" style="color: #ff9800;">${stats.verified}</div>
+        </div>
+        <div class="challenge-summary-stat">
+          <div class="challenge-summary-stat-label">미시작</div>
+          <div class="challenge-summary-stat-value" style="color: var(--text-muted);">${stats.pending}</div>
+        </div>
+      </div>
+      <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border);">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">
+          <span style="font-size: 0.9rem; font-weight: 600; color: var(--text);">전체 완료율</span>
+          <span style="font-size: 1.1rem; font-weight: 700; color: var(--accent);">${stats.completionRate}%</span>
+        </div>
+        <div class="challenge-progress-bar">
+          <div class="challenge-progress-fill" style="width: ${stats.completionRate}%;"></div>
+        </div>
+      </div>
+      ${categoryStatsHtml}
+    `;
+    wrapper.appendChild(summaryCard);
+  }
+
+  // 필터링 및 정렬 바
+  if (state.challengeStatus && state.challengeStatus.challenge_places && state.challengeStatus.challenge_places.length > 0) {
+    const filterBar = document.createElement("div");
+    filterBar.className = "filter-bar";
+    
+    // 카테고리 목록 생성
+    const categories = new Set();
+    state.challengeStatus.challenge_places.forEach(place => {
+      if (place.category_id) {
+        categories.add(place.category_id);
+      }
+    });
+    const categoryMap = {};
+    state.challengeStatus.challenge_places.forEach(place => {
+      if (place.category_id && !categoryMap[place.category_id]) {
+        categoryMap[place.category_id] = place.category_name || "기타";
+      }
+    });
+    
+    filterBar.innerHTML = `
+      <div class="filter-group">
+        <label class="filter-label">상태:</label>
+        <select class="filter-select" id="challenge-status-filter">
+          <option value="all" ${state.challengeFilter === "all" ? "selected" : ""}>전체</option>
+          <option value="pending" ${state.challengeFilter === "pending" ? "selected" : ""}>미인증</option>
+          <option value="verified" ${state.challengeFilter === "verified" ? "selected" : ""}>인증완료</option>
+          <option value="completed" ${state.challengeFilter === "completed" ? "selected" : ""}>완료</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label class="filter-label">카테고리:</label>
+        <select class="filter-select" id="challenge-category-filter">
+          <option value="all" ${state.challengeCategoryFilter === "all" ? "selected" : ""}>전체</option>
+          ${Array.from(categories).map(catId => `
+            <option value="${catId}" ${state.challengeCategoryFilter === catId ? "selected" : ""}>${categoryMap[catId] || "기타"}</option>
+          `).join('')}
+        </select>
+      </div>
+      <div class="filter-group">
+        <label class="filter-label">정렬:</label>
+        <select class="filter-select" id="challenge-sort">
+          <option value="name" ${state.challengeSort === "name" ? "selected" : ""}>이름순</option>
+          <option value="completed" ${state.challengeSort === "completed" ? "selected" : ""}>완료순</option>
+          <option value="points" ${state.challengeSort === "points" ? "selected" : ""}>포인트순</option>
+        </select>
+      </div>
+    `;
+    wrapper.appendChild(filterBar);
+    
+    // 필터 이벤트 리스너
+    select("#challenge-status-filter")?.addEventListener("change", (e) => {
+      state.challengeFilter = e.target.value;
+      renderChallengesView();
+    });
+    
+    select("#challenge-category-filter")?.addEventListener("change", (e) => {
+      state.challengeCategoryFilter = e.target.value;
+      renderChallengesView();
+    });
+    
+    select("#challenge-sort")?.addEventListener("change", (e) => {
+      state.challengeSort = e.target.value;
+      renderChallengesView();
+    });
+  }
+
   // 챌린지 장소 목록
   const listCard = document.createElement("div");
   listCard.className = "card";
@@ -1197,8 +1409,38 @@ function renderChallengesView() {
       </p>
     `;
   } else {
+    // 필터링 및 정렬 적용
+    let filteredPlaces = [...state.challengeStatus.challenge_places];
+    
+    // 상태 필터 적용
+    if (state.challengeFilter === "pending") {
+      filteredPlaces = filteredPlaces.filter(p => !p.location_verified);
+    } else if (state.challengeFilter === "verified") {
+      filteredPlaces = filteredPlaces.filter(p => p.location_verified && !p.review_completed);
+    } else if (state.challengeFilter === "completed") {
+      filteredPlaces = filteredPlaces.filter(p => p.review_completed);
+    }
+    
+    // 카테고리 필터 적용
+    if (state.challengeCategoryFilter !== "all") {
+      filteredPlaces = filteredPlaces.filter(p => p.category_id === state.challengeCategoryFilter);
+    }
+    
+    // 정렬 적용
+    if (state.challengeSort === "name") {
+      filteredPlaces.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+    } else if (state.challengeSort === "completed") {
+      filteredPlaces.sort((a, b) => {
+        if (a.review_completed && !b.review_completed) return -1;
+        if (!a.review_completed && b.review_completed) return 1;
+        return 0;
+      });
+    } else if (state.challengeSort === "points") {
+      filteredPlaces.sort((a, b) => (b.points_reward || 0) - (a.points_reward || 0));
+    }
+    
     const categoryOrder = [];
-    const groupedPlaces = state.challengeStatus.challenge_places.reduce((acc, place) => {
+    const groupedPlaces = filteredPlaces.reduce((acc, place) => {
       const categoryKey = place.category_id || "uncategorized";
       if (!acc[categoryKey]) {
         acc[categoryKey] = {
@@ -1213,64 +1455,120 @@ function renderChallengesView() {
       return acc;
     }, {});
     
+    // 카테고리별 통계 계산
+    const categoryStats = calculateCategoryStats();
+    
     categoryOrder.forEach((categoryId) => {
       const category = groupedPlaces[categoryId];
+      const categoryStat = categoryStats[categoryId] || { completed: 0, total: category.places.length, completionRate: 0 };
       const categoryBlock = document.createElement("div");
-      categoryBlock.className = "stack";
-      categoryBlock.style.padding = "0.5rem 0";
+      categoryBlock.className = "category-section";
       
-      const categoryTitle = document.createElement("h3");
-      categoryTitle.className = "section-title";
-      const icon = category.icon ? `<span style="margin-right: 0.35rem;">${category.icon}</span>` : "";
-      categoryTitle.innerHTML = `${icon}${category.name}`;
-      categoryTitle.style.display = "flex";
-      categoryTitle.style.alignItems = "center";
-      categoryTitle.style.gap = "0.35rem";
-      categoryTitle.style.marginBottom = "0.35rem";
-      categoryTitle.style.paddingBottom = "0.35rem";
-      categoryTitle.style.borderBottom = `2px solid ${category.color}`;
-      categoryTitle.style.color = category.color;
-      categoryBlock.appendChild(categoryTitle);
+      const categoryHeader = document.createElement("div");
+      categoryHeader.className = "category-header";
+      const icon = category.icon || "📍";
+      const isExpanded = !state[`category_${categoryId}_collapsed`];
+      
+      categoryHeader.innerHTML = `
+        <div class="category-header-title">
+          <span class="category-header-icon">${icon}</span>
+          <span>${category.name}</span>
+        </div>
+        <div class="category-progress">
+          <span style="font-size: 0.85rem; color: var(--text-muted);">${categoryStat.completed}/${categoryStat.total} 완료</span>
+          <span style="font-size: 0.85rem; font-weight: 600; color: var(--accent); margin-left: 0.5rem;">${categoryStat.completionRate}%</span>
+        </div>
+        <button class="category-toggle ${isExpanded ? 'expanded' : ''}" data-category-id="${categoryId}">▼</button>
+      `;
+      
+      categoryHeader.addEventListener("click", () => {
+        const key = `category_${categoryId}_collapsed`;
+        state[key] = !state[key];
+        renderChallengesView();
+      });
+      
+      categoryBlock.appendChild(categoryHeader);
 
       const list = document.createElement("div");
-      list.className = "stack";
+      list.className = `category-content ${isExpanded ? '' : 'collapsed'}`;
     
     category.places.forEach((place) => {
       const placeCard = document.createElement("div");
-      placeCard.className = "card sub";
       const accentColor = place.category_color || category.color || "#5f6368";
-      placeCard.style.border = `1px solid ${accentColor}`;
-      placeCard.style.boxShadow = `0 6px 20px ${hexToRgba(accentColor, 0.18)}`;
-      placeCard.style.background = `linear-gradient(135deg, ${hexToRgba(accentColor, 0.08)}, #ffffff)`;
       
-      let statusBadge = "";
-      let actionButton = "";
-      
+      // 완료 상태에 따라 클래스 추가
       if (place.review_completed) {
-        statusBadge = `<span class="inline-chip" style="background: #4caf50; color: white;">완료</span>`;
-      } else if (place.location_verified) {
-        statusBadge = `<span class="inline-chip" style="background: #ff9800; color: white;">리뷰 작성 가능</span>`;
-        actionButton = `<button class="primary-btn" data-action="review" data-place-id="${place.id}">리뷰 작성</button>`;
+        placeCard.className = "challenge-card completed";
       } else {
-        statusBadge = `<span class="inline-chip">미인증</span>`;
-        actionButton = `<button class="primary-outline" data-action="verify" data-place-id="${place.id}">위치 인증</button>`;
+        placeCard.className = "challenge-card";
       }
       
-      placeCard.innerHTML = `
-        <header class="card-header">
-          <div>
-            <h3 class="card-title">${place.name}</h3>
-            <p class="subtext">${place.description}</p>
+      // 진행 상태 계산
+      let progressPercentage = 0;
+      let progressText = "";
+      let statusBadge = "";
+      let actionButton = "";
+      let statusClass = "";
+      
+      if (place.review_completed) {
+        progressPercentage = 100;
+        progressText = "완료";
+        statusBadge = `<span class="challenge-status-badge completed">✓ 완료</span><span class="completed-badge">💕 함께 완료</span>`;
+        statusClass = "completed";
+      } else if (place.location_verified) {
+        progressPercentage = 50;
+        progressText = "리뷰 작성 가능";
+        statusBadge = `<span class="challenge-status-badge verified">📍 인증완료</span>`;
+        actionButton = `<button class="primary-btn challenge-action-btn" data-action="review" data-place-id="${place.id}">✍️ 리뷰 작성</button>`;
+        statusClass = "verified";
+      } else {
+        progressPercentage = 0;
+        progressText = "미인증";
+        statusBadge = `<span class="challenge-status-badge pending">⏳ 미인증</span>`;
+        actionButton = `<button class="primary-btn challenge-action-btn" data-action="verify" data-place-id="${place.id}">📍 위치 인증</button>`;
+        statusClass = "pending";
+      }
+      
+      // 완료된 챌린지에 축하 메시지 및 공유 버튼 추가
+      const celebrationSection = place.review_completed ? `
+        <div class="celebration-animation" style="margin-top: 1rem; padding: 1rem; background: linear-gradient(135deg, rgba(76, 175, 80, 0.1), rgba(102, 187, 106, 0.1)); border-radius: 12px; border: 1px solid rgba(76, 175, 80, 0.2);">
+          <div style="display: flex; align-items: center; justify-content: space-between;">
+            <div>
+              <div style="font-size: 0.9rem; font-weight: 600; color: #4caf50; margin-bottom: 0.25rem;">🎉 챌린지 완료!</div>
+              <div style="font-size: 0.8rem; color: var(--text-muted);">함께 완료한 챌린지입니다</div>
+            </div>
+            <button class="primary-outline" style="padding: 0.5rem 1rem; font-size: 0.85rem;" data-action="share" data-place-id="${place.id}" data-place-name="${place.name}">📤 공유</button>
           </div>
-          ${statusBadge}
-        </header>
-        <div class="pill-list">
-          <span class="inline-chip">${place.badge_reward} 배지</span>
-          <span class="inline-chip">${place.points_reward} 포인트</span>
         </div>
-        <div style="margin-top: 0.5rem; display: flex; gap: 0.5rem; flex-wrap: wrap;">
+      ` : '';
+      
+      placeCard.innerHTML = `
+        <div class="challenge-card-header">
+          <div style="flex: 1;">
+            <h3 class="challenge-card-title">${place.name}</h3>
+            <p class="challenge-card-description">${place.description || ""}</p>
+          </div>
+          <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 0.5rem;">
+            ${statusBadge}
+          </div>
+        </div>
+        <div class="challenge-progress">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+            <span style="font-size: 0.85rem; color: var(--text-muted);">진행 상황</span>
+            <span style="font-size: 0.85rem; font-weight: 600; color: var(--accent);">${progressText}</span>
+          </div>
+          <div class="challenge-progress-bar">
+            <div class="challenge-progress-fill" style="width: ${progressPercentage}%;"></div>
+          </div>
+        </div>
+        <div class="challenge-rewards">
+          <span class="challenge-reward-chip">🏆 ${place.badge_reward} 배지</span>
+          <span class="challenge-reward-chip">⭐ ${place.points_reward} 포인트</span>
+        </div>
+        ${celebrationSection}
+        <div class="challenge-actions">
           ${actionButton}
-          <button class="primary-outline" data-action="show-on-map" data-place-id="${place.id}" data-latitude="${place.latitude}" data-longitude="${place.longitude}" data-place-name="${place.name}">지도에서 보기</button>
+          <button class="primary-outline challenge-action-btn" data-action="show-on-map" data-place-id="${place.id}" data-latitude="${place.latitude}" data-longitude="${place.longitude}" data-place-name="${place.name}">🗺️ 지도에서 보기</button>
         </div>
       `;
       
@@ -1300,6 +1598,15 @@ function renderChallengesView() {
       const longitude = parseFloat(btn.dataset.longitude);
       const name = btn.dataset.placeName;
       showPlaceMarker(latitude, longitude, name);
+    });
+  });
+  
+  // 공유 버튼 이벤트 리스너 (UI만, 기능은 추후 구현 가능)
+  selectAll('[data-action="share"]').forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const placeName = btn.dataset.placeName;
+      // 공유 기능은 추후 구현 가능 (예: 클립보드 복사, SNS 공유 등)
+      alert(`"${placeName}" 챌린지 완료를 공유합니다! (공유 기능은 곧 추가될 예정입니다)`);
     });
   });
 }
@@ -2806,6 +3113,87 @@ async function handleDeleteReport(reportId) {
   } catch (error) {
     alert(error.message);
   }
+}
+
+// 챌린지 통계 계산 함수
+function calculateChallengeStats() {
+  if (!state.challengeStatus || !state.challengeStatus.challenge_places) {
+    return {
+      total: 0,
+      completed: 0,
+      verified: 0,
+      pending: 0,
+      completionRate: 0
+    };
+  }
+  
+  const places = state.challengeStatus.challenge_places;
+  const total = places.length;
+  const completed = places.filter(p => p.review_completed).length;
+  const verified = places.filter(p => p.location_verified && !p.review_completed).length;
+  const pending = places.filter(p => !p.location_verified).length;
+  const completionRate = total > 0 ? Math.round((completed / total) * 100) : 0;
+  
+  return { total, completed, verified, pending, completionRate };
+}
+
+function calculateCategoryStats() {
+  if (!state.challengeStatus || !state.challengeStatus.challenge_places) {
+    return {};
+  }
+  
+  const places = state.challengeStatus.challenge_places;
+  const categoryMap = {};
+  
+  places.forEach(place => {
+    const categoryId = place.category_id || "uncategorized";
+    if (!categoryMap[categoryId]) {
+      categoryMap[categoryId] = {
+        name: place.category_name || "기타",
+        total: 0,
+        completed: 0,
+        completionRate: 0
+      };
+    }
+    categoryMap[categoryId].total++;
+    if (place.review_completed) {
+      categoryMap[categoryId].completed++;
+    }
+  });
+  
+  Object.keys(categoryMap).forEach(categoryId => {
+    const cat = categoryMap[categoryId];
+    cat.completionRate = cat.total > 0 ? Math.round((cat.completed / cat.total) * 100) : 0;
+  });
+  
+  return categoryMap;
+}
+
+function calculateCoupleProgress() {
+  if (!state.couple || !state.challengeStatus) {
+    return {
+      memberCount: 0,
+      totalChallenges: 0,
+      completedChallenges: 0,
+      completionRate: 0,
+      totalPoints: 0
+    };
+  }
+  
+  const members = state.couple.members || [];
+  const places = state.challengeStatus.challenge_places || [];
+  const completed = places.filter(p => p.review_completed).length;
+  const total = places.length;
+  const points = state.challengeStatus.points || 0;
+  const completionRate = total > 0 ? Math.round((completed / total) * 100) : 0;
+  
+  return {
+    memberCount: members.length,
+    totalChallenges: total,
+    completedChallenges: completed,
+    completionRate,
+    totalPoints: points
+  };
 }
 
 document.addEventListener("DOMContentLoaded", bootstrap);
