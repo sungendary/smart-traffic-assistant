@@ -47,6 +47,8 @@ async def verify_location(
     db: AsyncIOMotorDatabase = Depends(get_mongo_db),
 ) -> LocationVerifyResponse:
     """위치 인증: 사용자 위치가 챌린지 장소 1km 반경 내에 있는지 확인"""
+    from bson import ObjectId
+    from datetime import datetime
     
     challenge_place = await get_challenge_place_by_id(db, payload.challenge_place_id)
     if not challenge_place:
@@ -71,6 +73,55 @@ async def verify_location(
     
     if verified:
         message = f"위치 인증 성공! ({distance:.0f}m 거리)"
+        
+        # 위치 인증 성공 시 DB에 방문 기록 생성 또는 업데이트
+        couple = await get_or_create_couple(db, current_user.id)
+        couple_id = str(couple["_id"])
+        couple_obj_id = ObjectId(couple_id)
+        place_obj_id = ObjectId(payload.challenge_place_id)
+        user_obj_id = ObjectId(current_user.id)
+        now = datetime.utcnow()
+        
+        VISITS_COL = "visits"
+        
+        # 기존 방문 기록 확인
+        existing_visit = await db[VISITS_COL].find_one({
+            "couple_id": couple_obj_id,
+            "challenge_place_id": place_obj_id
+        })
+        
+        if existing_visit:
+            # 기존 기록이 있으면 location_verified만 업데이트 (리뷰가 완료되지 않은 경우에만)
+            if not existing_visit.get("review_completed", False):
+                await db[VISITS_COL].update_one(
+                    {"_id": existing_visit["_id"]},
+                    {
+                        "$set": {
+                            "location_verified": True,
+                            "updated_at": now
+                        }
+                    }
+                )
+        else:
+            # 새 방문 기록 생성
+            visit_doc = {
+                "couple_id": couple_obj_id,
+                "user_id": user_obj_id,
+                "plan_id": None,
+                "place_id": challenge_place.get("place_id", ""),
+                "place_name": challenge_place.get("name", ""),
+                "visited_at": now.isoformat(),
+                "emotion": None,
+                "tags": [],
+                "memo": "",
+                "rating": None,
+                "challenge_place_id": place_obj_id,
+                "location_verified": True,
+                "review_completed": False,
+                "created_at": now,
+                "updated_at": now,
+            }
+            await db[VISITS_COL].insert_one(visit_doc)
     else:
         message = f"위치 인증 실패. 챌린지 장소로부터 {distance:.0f}m 떨어져 있습니다. (필요: 1km 이내)"
     
