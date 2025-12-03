@@ -9,6 +9,7 @@ class ChallengePlaceCreate(BaseModel):
     latitude: float
     longitude: float
     address: str
+    category_id: str  # 카테고리 ID (ObjectId 문자열)
     tags: list[str] = Field(default_factory=list)
     badge_reward: str  # 배지 이모지
     points_reward: int = 500
@@ -21,6 +22,7 @@ class ChallengePlaceUpdate(BaseModel):
     latitude: float | None = None
     longitude: float | None = None
     address: str | None = None
+    category_id: str | None = None  # 카테고리 ID (ObjectId 문자열)
     tags: list[str] | None = None
     badge_reward: str | None = None
     points_reward: int | None = None
@@ -34,6 +36,7 @@ class ChallengePlaceOut(BaseModel):
     latitude: float
     longitude: float
     address: str
+    category_id: str  # 카테고리 ID (ObjectId 문자열)
     tags: list[str]
     badge_reward: str
     points_reward: int

@@ -21,5 +21,7 @@ async def suggest_places(
         preferences=payload.preferences,
         location_text=payload.location_text,
         additional_context=payload.additional_context,
+        budget=payload.budget,
+        date=payload.date,
     )
     return MapSuggestionResponse(**data)
