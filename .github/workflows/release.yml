@@ -32,7 +32,7 @@ on:
         type: string
 
 env:
-  IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/dating-app-api
+  IMAGE_NAME: ghcr.io/${{ github.repository }}/dating-app-api
 
 jobs:
   # 릴리즈 생성 작업
@@ -40,6 +40,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write  # GitHub Release 생성 권한
+      packages: read   # GHCR 이미지 정보 읽기 권한
     
     steps:
       # 저장소 코드 체크아웃
