@@ -98,10 +98,10 @@ jobs:
   # CI 통과 확인
   verify-ci:
     runs-on: ubuntu-latest
+    # workflow_dispatch일 때는 항상 실행, workflow_run일 때는 CI 성공 시에만 실행
     if: |
-      (github.event.workflow_run.conclusion == 'success' ||
-       github.event_name == 'workflow_dispatch') &&
-      !github.event.inputs.skip_ci_check
+      (github.event_name == 'workflow_dispatch' && !github.event.inputs.skip_ci_check) ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
     steps:
       - name: Verify CI Integration passed
         if: github.event_name == 'workflow_run'
@@ -120,10 +120,14 @@ jobs:
   # 개발 환경 배포 작업
   deploy:
     needs: [build, verify-ci]
+    # workflow_dispatch일 때는 skip_ci_check가 true이거나 verify-ci가 성공하면 실행
+    # workflow_run일 때는 CI 성공하고 verify-ci가 성공하면 실행
     if: |
-      (github.event.workflow_run.conclusion == 'success' ||
-       github.event_name == 'workflow_dispatch') &&
-      (github.event.inputs.skip_ci_check == true || needs.verify-ci.result == 'success')
+      (github.event_name == 'workflow_dispatch' && 
+       (github.event.inputs.skip_ci_check == true || needs.verify-ci.result == 'success')) ||
+      (github.event_name == 'workflow_run' && 
+       github.event.workflow_run.conclusion == 'success' && 
+       needs.verify-ci.result == 'success')
     runs-on: ubuntu-latest
     
     steps:
