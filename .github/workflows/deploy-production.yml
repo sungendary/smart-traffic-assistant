@@ -53,10 +53,10 @@ jobs:
   # 리포지토리 Settings > Environments > production에서 승인자 설정 필요
   approval:
     runs-on: ubuntu-latest
-    # workflow_dispatch일 때는 항상 실행 (skip_approval이 false일 때)
+    # workflow_dispatch일 때는 항상 실행 (skip_approval이 true가 아닐 때)
     # workflow_run일 때는 CI 성공 시에만 실행
     if: |
-      (github.event_name == 'workflow_dispatch' && !github.event.inputs.skip_approval) ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.skip_approval != 'true') ||
       (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
     environment:
       name: production
@@ -102,7 +102,7 @@ jobs:
     # workflow_run일 때는 CI 성공하고 approval이 성공하면 실행
     if: |
       (github.event_name == 'workflow_dispatch' && 
-       (github.event.inputs.skip_approval == true || needs.approval.result == 'success')) ||
+       (github.event.inputs.skip_approval == 'true' || needs.approval.result == 'success')) ||
       (github.event_name == 'workflow_run' && 
        github.event.workflow_run.conclusion == 'success' && 
        needs.approval.result == 'success')
