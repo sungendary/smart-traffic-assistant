@@ -160,19 +160,28 @@ jobs:
       # 로컬 Kubernetes 클러스터 생성 (kind 사용)
       - name: Create local Kubernetes cluster
         if: steps.check-kubeconfig.outputs.mode == 'local'
-        uses: helm/kind-action@v1.10.0
-        with:
-          cluster_name: dating-app-dev
-          wait: 300s
-          config: |
-            kind: Cluster
-            apiVersion: kind.x-k8s.io/v1alpha4
-            nodes:
-            - role: control-plane
-              extraPortMappings:
-              - containerPort: 30000
-                hostPort: 30000
-                protocol: TCP
+        run: |
+          # kind 설치
+          curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.22.0/kind-linux-amd64
+          chmod +x ./kind
+          sudo mv ./kind /usr/local/bin/kind
+          
+          # kind 클러스터 생성
+          cat <<EOF | kind create cluster --name dating-app-dev --config=-
+          kind: Cluster
+          apiVersion: kind.x-k8s.io/v1alpha4
+          nodes:
+          - role: control-plane
+            extraPortMappings:
+            - containerPort: 30000
+              hostPort: 30000
+              protocol: TCP
+          EOF
+          
+          # kubectl 설정
+          mkdir -p $HOME/.kube
+          kind get kubeconfig --name dating-app-dev > $HOME/.kube/config
+          export KUBECONFIG=$HOME/.kube/config
 
       - name: Configure Kubernetes (External)
         if: steps.check-kubeconfig.outputs.mode == 'external'
