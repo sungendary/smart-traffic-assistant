@@ -200,44 +200,73 @@ jobs:
           kubectl cluster-info
           kubectl get nodes
 
-      # 로컬 클러스터에 이미지 로드 (kind 사용 시)
-      - name: Load Docker image to kind cluster
-        if: steps.check-kubeconfig.outputs.mode == 'local'
-        run: |
-          # KUBECONFIG 설정
-          export KUBECONFIG=$HOME/.kube/config
-          # GHCR에서 이미지를 pull하여 kind 클러스터에 로드
-          docker pull ${{ env.IMAGE_NAME }}:${{ steps.image-tag.outputs.tag }} || docker pull ${{ env.IMAGE_NAME }}:develop_branch
-          kind load docker-image ${{ env.IMAGE_NAME }}:${{ steps.image-tag.outputs.tag }} --name dating-app-dev || \
-          kind load docker-image ${{ env.IMAGE_NAME }}:develop_branch --name dating-app-dev || \
-          echo "⚠️ Image loading failed, will try to pull from registry"
-
       # 배포할 이미지 태그 결정
       - name: Determine image tag
         id: image-tag
         run: |
           if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-            echo "tag=${{ github.event.inputs.image_tag }}" >> $GITHUB_OUTPUT
+            TAG="${{ github.event.inputs.image_tag }}"
+            if [ -z "$TAG" ] || [ "$TAG" == "" ]; then
+              TAG="develop_branch"
+            fi
           else
-            echo "tag=develop_branch-${{ github.sha }}" >> $GITHUB_OUTPUT
+            TAG="develop_branch-${{ github.sha }}"
+          fi
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "Using image tag: $TAG"
+
+      # 로컬 클러스터에 이미지 로드 (kind 사용 시) - 배포 전에 실행
+      - name: Load Docker image to kind cluster
+        id: load-image
+        if: steps.check-kubeconfig.outputs.mode == 'local'
+        run: |
+          # KUBECONFIG 설정
+          export KUBECONFIG=$HOME/.kube/config
+          TAG="${{ steps.image-tag.outputs.tag }}"
+          echo "Loading image: ${{ env.IMAGE_NAME }}:$TAG"
+          # GHCR에서 이미지를 pull하여 kind 클러스터에 로드
+          docker pull ${{ env.IMAGE_NAME }}:$TAG || docker pull ${{ env.IMAGE_NAME }}:develop_branch || true
+          if kind load docker-image ${{ env.IMAGE_NAME }}:$TAG --name dating-app-dev 2>/dev/null; then
+            echo "✅ Image loaded: ${{ env.IMAGE_NAME }}:$TAG"
+            echo "loaded_tag=$TAG" >> $GITHUB_OUTPUT
+          elif kind load docker-image ${{ env.IMAGE_NAME }}:develop_branch --name dating-app-dev 2>/dev/null; then
+            echo "✅ Image loaded: ${{ env.IMAGE_NAME }}:develop_branch (fallback)"
+            echo "loaded_tag=develop_branch" >> $GITHUB_OUTPUT
+          else
+            echo "⚠️ Image loading failed. Will try to pull from registry during deployment."
+            echo "loaded_tag=$TAG" >> $GITHUB_OUTPUT
           fi
 
       # Kubernetes 매니페스트에 이미지 태그 업데이트
       - name: Update deployment manifest
         run: |
-          sed -i "s|image:.*dating-app-api.*|image: ${{ env.IMAGE_NAME }}:${{ steps.image-tag.outputs.tag }}|g" \
+          export KUBECONFIG=$HOME/.kube/config
+          # kind 클러스터에서는 로드된 이미지 태그 사용, 외부 클러스터에서는 원래 태그 사용
+          if [ "${{ steps.check-kubeconfig.outputs.mode }}" == "local" ] && [ -n "${{ steps.load-image.outputs.loaded_tag }}" ]; then
+            FINAL_TAG="${{ steps.load-image.outputs.loaded_tag }}"
+          else
+            FINAL_TAG="${{ steps.image-tag.outputs.tag }}"
+          fi
+          sed -i "s|image:.*dating-app-api.*|image: ${{ env.IMAGE_NAME }}:$FINAL_TAG|g" \
             k8s/api-deployment.yaml
+          # kind 클러스터에서는 imagePullPolicy를 Never로 변경 (로컬 이미지 사용)
+          if [ "${{ steps.check-kubeconfig.outputs.mode }}" == "local" ]; then
+            sed -i 's|imagePullPolicy:.*|imagePullPolicy: Never|g' k8s/api-deployment.yaml
+          fi
+          echo "Updated deployment manifest with image: ${{ env.IMAGE_NAME }}:$FINAL_TAG"
 
       # Kubernetes 배포 (kubeconfig가 있거나 로컬 클러스터가 생성된 경우)
       - name: Create namespace
         if: steps.check-kubeconfig.outputs.configured == 'true'
         run: |
+          export KUBECONFIG=$HOME/.kube/config
           kubectl create namespace ${{ env.KUBERNETES_NAMESPACE }} --dry-run=client -o yaml | kubectl apply -f - || true
           
       # 로컬 클러스터용 StorageClass 설정 (kind는 local-path 사용)
       - name: Setup local-path storage (kind)
         if: steps.check-kubeconfig.outputs.mode == 'local'
         run: |
+          export KUBECONFIG=$HOME/.kube/config
           kubectl apply -f https://raw.githubusercontent.com/rancher/local-path-provisioner/v0.0.24/deploy/local-path-storage.yaml || true
           kubectl patch storageclass local-path -p '{"metadata": {"annotations":{"storageclass.kubernetes.io/is-default-class":"true"}}}' || true
           # MongoDB와 LLM의 storageClassName을 local-path로 변경
@@ -247,11 +276,13 @@ jobs:
       - name: Apply ConfigMap
         if: steps.check-kubeconfig.outputs.configured == 'true'
         run: |
+          export KUBECONFIG=$HOME/.kube/config
           kubectl apply -f k8s/app-configmap.yaml -n ${{ env.KUBERNETES_NAMESPACE }} || true
 
       - name: Apply Secrets
         if: steps.check-kubeconfig.outputs.configured == 'true'
         run: |
+          export KUBECONFIG=$HOME/.kube/config
           if [ -f k8s/app-secrets.yaml ]; then
             kubectl apply -f k8s/app-secrets.yaml -n ${{ env.KUBERNETES_NAMESPACE }} || true
           else
@@ -261,11 +292,36 @@ jobs:
       - name: Deploy API
         if: steps.check-kubeconfig.outputs.configured == 'true'
         run: |
+          export KUBECONFIG=$HOME/.kube/config
           kubectl apply -f k8s/api-deployment.yaml -n ${{ env.KUBERNETES_NAMESPACE }} || true
+
+      # Pod 상태 확인 (디버깅)
+      - name: Check Pod status
+        if: steps.check-kubeconfig.outputs.configured == 'true'
+        run: |
+          export KUBECONFIG=$HOME/.kube/config
+          echo "=== Deployment Status ==="
+          kubectl get deployment dating-app-api -n ${{ env.KUBERNETES_NAMESPACE }} || true
+          echo ""
+          echo "=== Pod Status ==="
+          kubectl get pods -n ${{ env.KUBERNETES_NAMESPACE }} -l app=dating-app-api || true
+          echo ""
+          echo "=== Pod Events ==="
+          kubectl get events -n ${{ env.KUBERNETES_NAMESPACE }} --sort-by='.lastTimestamp' | tail -20 || true
+          echo ""
+          echo "=== Pod Description ==="
+          POD_NAME=$(kubectl get pods -n ${{ env.KUBERNETES_NAMESPACE }} -l app=dating-app-api -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
+          if [ -n "$POD_NAME" ]; then
+            kubectl describe pod $POD_NAME -n ${{ env.KUBERNETES_NAMESPACE }} || true
+            echo ""
+            echo "=== Pod Logs ==="
+            kubectl logs $POD_NAME -n ${{ env.KUBERNETES_NAMESPACE }} --tail=50 || true
+          fi
 
       - name: Wait for deployment
         if: steps.check-kubeconfig.outputs.configured == 'true'
         run: |
+          export KUBECONFIG=$HOME/.kube/config
           kubectl rollout status deployment/dating-app-api -n ${{ env.KUBERNETES_NAMESPACE }} --timeout=5m || true
 
       - name: Wait for pods to be ready
