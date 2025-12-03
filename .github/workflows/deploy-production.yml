@@ -140,19 +140,28 @@ jobs:
       # 로컬 Kubernetes 클러스터 생성 (kind 사용) - 프로덕션은 외부 클러스터 권장
       - name: Create local Kubernetes cluster
         if: steps.check-kubeconfig.outputs.mode == 'local'
-        uses: helm/kind-action@v1.10.0
-        with:
-          cluster_name: dating-app-prod
-          wait: 300s
-          config: |
-            kind: Cluster
-            apiVersion: kind.x-k8s.io/v1alpha4
-            nodes:
-            - role: control-plane
-              extraPortMappings:
-              - containerPort: 30000
-                hostPort: 30000
-                protocol: TCP
+        run: |
+          # kind 설치
+          curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.22.0/kind-linux-amd64
+          chmod +x ./kind
+          sudo mv ./kind /usr/local/bin/kind
+          
+          # kind 클러스터 생성
+          cat <<EOF | kind create cluster --name dating-app-prod --config=-
+          kind: Cluster
+          apiVersion: kind.x-k8s.io/v1alpha4
+          nodes:
+          - role: control-plane
+            extraPortMappings:
+            - containerPort: 30000
+              hostPort: 30000
+              protocol: TCP
+          EOF
+          
+          # kubectl 설정
+          mkdir -p $HOME/.kube
+          kind get kubeconfig --name dating-app-prod > $HOME/.kube/config
+          export KUBECONFIG=$HOME/.kube/config
 
       - name: Configure Kubernetes (External)
         if: steps.check-kubeconfig.outputs.mode == 'external'
@@ -164,6 +173,10 @@ jobs:
       - name: Configure Kubernetes (Local)
         if: steps.check-kubeconfig.outputs.mode == 'local'
         run: |
+          # kind 클러스터의 kubeconfig 설정
+          mkdir -p $HOME/.kube
+          kind get kubeconfig --name dating-app-prod > $HOME/.kube/config
+          export KUBECONFIG=$HOME/.kube/config
           kubectl cluster-info
           kubectl get nodes
 
@@ -171,6 +184,8 @@ jobs:
       - name: Load Docker image to kind cluster
         if: steps.check-kubeconfig.outputs.mode == 'local'
         run: |
+          # KUBECONFIG 설정
+          export KUBECONFIG=$HOME/.kube/config
           docker pull ${{ env.IMAGE_NAME }}:${{ steps.image-tag.outputs.tag }} || docker pull ${{ env.IMAGE_NAME }}:latest
           kind load docker-image ${{ env.IMAGE_NAME }}:${{ steps.image-tag.outputs.tag }} --name dating-app-prod || \
           kind load docker-image ${{ env.IMAGE_NAME }}:latest --name dating-app-prod || \
