@@ -45,8 +45,9 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  # 리포지토리 소유 패키지로 변경 (조직 패키지 권한 문제 해결)
-  IMAGE_NAME: ${{ github.repository_owner }}/dating-app-api
+  # 레포지토리 레벨 패키지로 변경 (조직 패키지 권한 문제 해결)
+  # github.repository은 "owner/repo" 형식이므로 레포지토리 레벨 패키지가 됨
+  IMAGE_NAME: ${{ github.repository }}/dating-app-api
 
 jobs:
   # Docker 이미지 빌드 및 푸시 작업
@@ -99,6 +100,8 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            GITHUB_REPOSITORY=https://github.com/${{ github.repository }}
           cache-from: type=gha  # GitHub Actions 캐시 사용
           cache-to: type=gha,mode=max
           platforms: linux/amd64  # 필요시 linux/arm64 추가 가능      # 이미지 취약점 스캔 (Trivy) - PR이 아닐 때만
