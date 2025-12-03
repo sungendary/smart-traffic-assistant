@@ -111,6 +111,11 @@ jobs:
             exit 1
           fi
           echo "✅ CI Integration passed. Proceeding to deployment."
+      
+      - name: Skip CI check (workflow_dispatch)
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          echo "✅ Skipping CI check for manual workflow dispatch. Proceeding to deployment."
 
   # 개발 환경 배포 작업
   deploy:
